@@ -1,0 +1,11 @@
+---
+nautobot_chatops_extension_panorama:
+  project_name: "nautobot-chatops-extension-panorama"
+  nautobot_ver: "1.0.1"
+  local: false
+  python_ver: "3.6"
+  compose_dir: "development"
+  compose_files:
+    - "docker-compose.requirements.yml"
+    - "docker-compose.base.yml"
+    - "docker-compose.dev.yml"

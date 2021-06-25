@@ -17,7 +17,7 @@ packages = [
 ]
 
 [tool.poetry.plugins."nautobot.workers"]
-"nautobot-chatops-extension-panorama" = "nautobot_chatops_extension_panorama.worker:nautobot_chatops_extension_panorama"
+"panorama" = "nautobot_chatops_extension_panorama.worker:panorama"
 
 [tool.poetry.dependencies]
 # Used for local development

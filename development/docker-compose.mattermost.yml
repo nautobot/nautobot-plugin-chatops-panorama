@@ -1,0 +1,20 @@
+---
+version: "3.4"
+services:
+  mattermost:
+    build:
+      context: ./
+      dockerfile: "Dockerfile-mattermost"
+    image: "nautobot-chatops-extension-panorama/mattermost"
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./mattermost_config_docker.json:/mm/mattermost/config/config_docker.json
+      - mattermost:/mm/mattermost-data:rw
+      - mattermost:/var/lib/mysql/:rw
+    env_file: "./mattermost.env"
+    ports:
+        - "8065:8065"
+
+volumes:
+    mattermost:

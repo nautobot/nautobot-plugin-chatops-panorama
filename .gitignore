@@ -300,3 +300,4 @@ creds.env
 
 # Invoke overrides
 invoke.yml
+development/mattermost_config_docker.json

@@ -1,0 +1,4 @@
+FROM mattermost/mattermost-preview:latest
+
+# Copy over docker-entry file for user creation handling
+ADD mattermost-docker-entry.sh /mm/docker-entry.sh

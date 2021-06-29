@@ -2,3 +2,6 @@ FROM mattermost/mattermost-preview:latest
 
 # Copy over docker-entry file for user creation handling
 ADD mattermost-docker-entry.sh /mm/docker-entry.sh
+
+# Copy over settings file
+ADD mattermost_config_docker.example.json /mm/mattermost/config/config_docker.json

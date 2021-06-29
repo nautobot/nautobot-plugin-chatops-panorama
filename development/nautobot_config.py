@@ -257,6 +257,11 @@ PLUGINS_CONFIG = {
         "mattermost_api_token": os.environ.get("NAUTOBOT_CHATOPS_MATTERMOST_API_TOKEN", ""),
         "mattermost_url": os.environ.get("NAUTOBOT_CHATOPS_MATTERMOST_URL", ""),
     },
+    "nautobot_chatops_extension_panorama": {
+        "panorama_host": os.environ.get("PANORAMA_HOST", ""),
+        "panorama_user": os.environ.get("PANORAMA_USER", ""),
+        "panorama_password": os.environ.get("PANORAMA_PASSWORD", "")
+    }
 }
 
 # When determining the primary IP address for a device, IPv6 is preferred over IPv4 by default. Set this to True to

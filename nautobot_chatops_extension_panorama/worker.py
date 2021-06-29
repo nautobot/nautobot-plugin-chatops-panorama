@@ -1,11 +1,9 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
 import logging
-from nautobot_chatops_extension_panorama.constant import PLUGIN_CFG
 
 from django_rq import job
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
-from nautobot_chatops.workers.helper_functions import nautobot_logo
 from .utils import connect_panorama, get_hostnames
 from panos.firewall import Firewall
 
@@ -48,7 +46,7 @@ def upload_software(dispatcher, device, version, **kwargs):
     logger.info(f"VERSION: {version}")
     pano = connect_panorama()
     if not device:
-        return prompt_for_device(dispatcher, f"panorama upload-software", pano)
+        return prompt_for_device(dispatcher, "panorama upload-software", pano)
 
     if not version:
         prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
@@ -74,7 +72,7 @@ def install_software(dispatcher, device, version, **kwargs):
     logger.info(f"VERSION: {version}")
     pano = connect_panorama()
     if not device:
-        return prompt_for_device(dispatcher, f"panorama install-software", pano)
+        return prompt_for_device(dispatcher, "panorama install-software", pano)
 
     if not version:
         prompt_for_versions(dispatcher, f"panorama install-software {device}", pano)

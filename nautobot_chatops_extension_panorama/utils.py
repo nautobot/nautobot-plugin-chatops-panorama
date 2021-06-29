@@ -6,6 +6,7 @@ from nautobot_chatops_extension_panorama.constant import PLUGIN_CFG
 
 
 def connect_panorama() -> Panorama:
+    """Method to connect to Panorama instance."""
     try:
         pano = Panorama(
             hostname=PLUGIN_CFG["panorama_host"],

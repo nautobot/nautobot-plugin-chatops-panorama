@@ -4,8 +4,9 @@ import logging
 from django_rq import job
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
-from .utils import connect_panorama, get_hostnames
 from panos.firewall import Firewall
+from .utils import connect_panorama, get_hostnames
+
 
 logger = logging.getLogger("rq.worker")
 
@@ -42,8 +43,8 @@ def get_version(dispatcher):
 @subcommand_of("panorama")
 def upload_software(dispatcher, device, version, **kwargs):
     """Upload software to specified Palo Alto device."""
-    logger.info(f"DEVICE: {device}")
-    logger.info(f"VERSION: {version}")
+    logger.info("DEVICE: %s", device)
+    logger.info("VERSION: %s", version)
     pano = connect_panorama()
     if not device:
         return prompt_for_device(dispatcher, "panorama upload-software", pano)
@@ -68,8 +69,8 @@ def upload_software(dispatcher, device, version, **kwargs):
 @subcommand_of("panorama")
 def install_software(dispatcher, device, version, **kwargs):
     """Install software to specified Palo Alto device."""
-    logger.info(f"DEVICE: {device}")
-    logger.info(f"VERSION: {version}")
+    logger.info("DEVICE: %s", device)
+    logger.info("VERSION: %s", version)
     pano = connect_panorama()
     if not device:
         return prompt_for_device(dispatcher, "panorama install-software", pano)

@@ -1,6 +1,6 @@
 ---
-nautobot_chatops_extension_panorama:
-  project_name: "nautobot-chatops-extension-panorama"
+nautobot_plugin_chatops_panorama:
+  project_name: "nautobot-plugin-chatops-panorama"
   nautobot_ver: "1.0.1"
   local: false
   python_ver: "3.6"

@@ -1,23 +1,23 @@
 [tool.poetry]
-name = "nautobot-chatops-extension-panorama"
+name = "nautobot-plugin-chatops-panorama"
 version = "0.1.0"
-description = "Nautobot Chatops extension for Panorama"
+description = "Nautobot Chatops plugin for Panorama"
 authors = ["Network to Code, LLC <opensource@networktocode.com>"]
 license = "Apache-2.0"
 readme = "README.md"
-homepage = "https://github.com/networktocode-llc/nautobot-chatops-extension-panorama"
-repository = "https://github.com/networktocode-llc/nautobot-chatops-extension-panorama"
+homepage = "https://github.com/networktocode-llc/nautobot-plugin-chatops-panorama"
+repository = "https://github.com/networktocode-llc/nautobot-plugin-chatops-panorama"
 keywords = ["nautobot", "nautobot-plugin"]
 include = [
     "LICENSE",
     "README.md",
 ]
 packages = [
-    { include = "nautobot_chatops_extension_panorama" },
+    { include = "nautobot_plugin_chatops_panorama" },
 ]
 
 [tool.poetry.plugins."nautobot.workers"]
-"panorama" = "nautobot_chatops_extension_panorama.worker:panorama"
+"panorama" = "nautobot_plugin_chatops_panorama.worker:panorama"
 
 [tool.poetry.dependencies]
 # Used for local development

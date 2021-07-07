@@ -5,7 +5,7 @@ services:
     build:
       context: ./
       dockerfile: "Dockerfile-mattermost"
-    image: "nautobot-chatops-extension-panorama/mattermost"
+    image: "nautobot-plugin-chatops-panorama/mattermost"
     restart: unless-stopped
     volumes:
       - /etc/localtime:/etc/localtime:ro

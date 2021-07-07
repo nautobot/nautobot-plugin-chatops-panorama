@@ -15,10 +15,22 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def get_hostnames(dev_list: list) -> list:
-    """Method to obtain the hostnames of devices in Panorama."""
-    _hostnames = []
+def get_devices(connection: Panorama) -> dict:
+    """Method to obtain the devices connected to Panorama.
+
+    Args:
+        connection (Panorama): Connection object to Panorama.
+
+    Returns:
+        dict: Dictionary of all devices attached to Panorama.
+    """
+    dev_list = connection.refresh_devices(expand_vsys=False, include_device_groups=False)
+    _device_dict = {}
     for device in dev_list:
         system_setting = device.find("", SystemSettings)
-        _hostnames.append(system_setting.hostname, device.serial)
-    return _hostnames
+        _device_dict[system_setting.hostname] = {
+            "hostname": system_setting.hostname,
+            "serial": device.serial,
+            "ip_address": system_setting.ip_address,
+        }
+    return _device_dict

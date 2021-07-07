@@ -5,6 +5,7 @@ from django_rq import job
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.firewall import Firewall
+from panos.errors import PanDeviceError
 from .utils import connect_panorama, get_devices
 
 
@@ -58,11 +59,10 @@ def upload_software(dispatcher, device, version, **kwargs):
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
     dispatcher.send_markdown("Starting download now...")
-    _result = _firewall.software.download(version)
-    if _result:
-        dispatcher.send_markdown(f"As requested, {version} is being uploaded to {device}.")
-    else:
-        dispatcher.send_markdown(f"There was an issue uploading {version} to {device}.")
+    try:
+        _firewall.software.download(version)
+    except PanDeviceError as err:
+        dispatcher.send_markdown(f"There was an issue uploading {version} to {device}. {err}")
         return CommandStatusChoices.STATUS_FAILED
     dispatcher.send_markdown(f"As requested, {version} is being uploaded to {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
@@ -85,10 +85,10 @@ def install_software(dispatcher, device, version, **kwargs):
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.")
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
-    _result = _firewall.software.install(version)
-    if _result:
-        dispatcher.send_markdown(f"As requested, {version} has been installed on {device}.")
-    else:
-        dispatcher.send_markdown(f"There was an issue installing {version} on {device}.")
+    try:
+        _firewall.software.install(version)
+    except PanDeviceError as err:
+        dispatcher.send_markdown(f"There was an issue installing {version} on {device}. {err}")
         return CommandStatusChoices.STATUS_FAILED
+    dispatcher.send_markdown(f"As requested, {version} has been installed on {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED

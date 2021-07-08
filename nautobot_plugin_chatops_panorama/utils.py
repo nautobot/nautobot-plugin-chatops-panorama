@@ -2,7 +2,7 @@
 
 from panos.panorama import Panorama
 from panos.device import SystemSettings
-from nautobot_chatops_extension_panorama.constant import PLUGIN_CFG
+from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 
 def connect_panorama() -> Panorama:

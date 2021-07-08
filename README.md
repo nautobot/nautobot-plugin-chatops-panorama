@@ -1,4 +1,4 @@
-# Nautobot Chatops Extension Panorama
+# Nautobot Plugin Chatops Panorama
 
 A plugin for [Nautobot](https://github.com/nautobot/nautobot).
 
@@ -7,25 +7,25 @@ A plugin for [Nautobot](https://github.com/nautobot/nautobot).
 The plugin is available as a Python package in pypi and can be installed with pip
 
 ```shell
-pip install nautobot-chatops-extension-panorama
+pip install nautobot-plugin-chatops-panorama
 ```
 
 > The plugin is compatible with Nautobot 1.0.0 and higher
 
-To ensure Nautobot Chatops Extension Panorama is automatically re-installed during future upgrades, create a file named `local_requirements.txt` (if not already existing) in the Nautobot root directory (alongside `requirements.txt`) and list the `nautobot-chatops-extension-panorama` package:
+To ensure Nautobot Plugin Chatops Panorama is automatically re-installed during future upgrades, create a file named `local_requirements.txt` (if not already existing) in the Nautobot root directory (alongside `requirements.txt`) and list the `nautobot-plugin-chatops-panorama` package:
 
 ```no-highlight
-# echo nautobot-chatops-extension-panorama >> local_requirements.txt
+# echo nautobot-plugin-chatops-panorama >> local_requirements.txt
 ```
 
 Once installed, the plugin needs to be enabled in your `nautobot_configuration.py`
 
 ```python
 # In your configuration.py
-PLUGINS = ["nautobot_chatops_extension_panorama"]
+PLUGINS = ["nautobot_plugin_chatops_panorama"]
 
 # PLUGINS_CONFIG = {
-#   "nautobot_chatops_extension_panorama": {
+#   "nautobot_plugin_chatops_panorama": {
 #     ADD YOUR SETTINGS HERE
 #   }
 # }
@@ -61,13 +61,13 @@ The development environment can be used in 2 ways. First, with a local poetry en
 The [PyInvoke](http://www.pyinvoke.org/) library is used to provide some helper commands based on the environment.  There are a few configuration parameters which can be passed to PyInvoke to override the default configuration:
 
 * `nautobot_ver`: the version of Nautobot to use as a base for any built docker containers (default: 1.0.1)
-* `project_name`: the default docker compose project name (default: nautobot_chatops_extension_panorama)
+* `project_name`: the default docker compose project name (default: nautobot_plugin_chatops_panorama)
 * `python_ver`: the version of Python to use as a base for any built docker containers (default: 3.6)
 * `local`: a boolean flag indicating if invoke tasks should be run on the host or inside the docker containers (default: False, commands will be run in docker containers)
 * `compose_dir`: the full path to a directory containing the project compose files
 * `compose_files`: a list of compose files applied in order (see [Multiple Compose files](https://docs.docker.com/compose/extends/#multiple-compose-files) for more information)
 
-Using PyInvoke these configuration options can be overridden using [several methods](http://docs.pyinvoke.org/en/stable/concepts/configuration.html).  Perhaps the simplest is simply setting an environment variable `INVOKE_NAUTOBOT-CHATOPS-EXTENSION-PANORAMA_VARIABLE_NAME` where `VARIABLE_NAME` is the variable you are trying to override.  The only exception is `compose_files`, because it is a list it must be overridden in a yaml file.  There is an example `invoke.yml` in this directory which can be used as a starting point.
+Using PyInvoke these configuration options can be overridden using [several methods](http://docs.pyinvoke.org/en/stable/concepts/configuration.html).  Perhaps the simplest is simply setting an environment variable `INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_VARIABLE_NAME` where `VARIABLE_NAME` is the variable you are trying to override.  The only exception is `compose_files`, because it is a list it must be overridden in a yaml file.  There is an example `invoke.yml` in this directory which can be used as a starting point.
 
 #### Local Poetry Development Environment
 
@@ -77,7 +77,7 @@ Using PyInvoke these configuration options can be overridden using [several meth
 
 ```shell
 ---
-nautobot_chatops_extension_panorama:
+nautobot_plugin_chatops_panorama:
   local: true
   compose_files:
     - "docker-compose.requirements.yml"
@@ -125,7 +125,7 @@ Nautobot server can now be accessed at [http://localhost:8080](http://localhost:
 
 The project is coming with a CLI helper based on [invoke](http://www.pyinvoke.org/) to help setup the development environment. The commands are listed below in 3 categories `dev environment`, `utility` and `testing`.
 
-Each command can be executed with `invoke <command>`. Environment variables `INVOKE_NAUTOBOT_CHATOPS_EXTENSION_PANORAMA_PYTHON_VER` and `INVOKE_NAUTOBOT_CHATOPS_EXTENSION_PANORAMA_NAUTOBOT_VER` may be specified to override the default versions. Each command also has its own help `invoke <command> --help`
+Each command can be executed with `invoke <command>`. Environment variables `INVOKE_nautobot_plugin_chatops_panorama_PYTHON_VER` and `INVOKE_nautobot_plugin_chatops_panorama_NAUTOBOT_VER` may be specified to override the default versions. Each command also has its own help `invoke <command> --help`
 
 #### Docker dev environment
 

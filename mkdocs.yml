@@ -1,9 +1,9 @@
 ---
 dev_addr: "127.0.0.1:8001"
-edit_uri: "edit/main/nautobot-chatops-extension-panorama/docs"
+edit_uri: "edit/main/nautobot-plugin-chatops-panorama/docs"
 site_name: "NautobotChatopsExtensionPanorama Documentation"
-site_url: "https://nautobot-chatops-extension-panorama.readthedocs.io/"
-repo_url: "https://github.com/networktocode-llc/nautobot-chatops-extension-panorama"
+site_url: "https://nautobot-plugin-chatops-panorama.readthedocs.io/"
+repo_url: "https://github.com/networktocode-llc/nautobot-plugin-chatops-panorama"
 python:
   install:
     - requirements: "docs/requirements.txt"

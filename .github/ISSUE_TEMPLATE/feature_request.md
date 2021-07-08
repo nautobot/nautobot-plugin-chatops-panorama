@@ -7,7 +7,7 @@ about: Propose a new feature or enhancement
 ### Environment
 * Nautobot version:  <!-- Example: 1.0.0 -->
 * nautobot-chatops version:  <!-- Example: 1.3.1 -->
-* nautobot-chatops-extension-panorama version:  <!-- Example: 0.1.0 -->
+* nautobot-plugin-chatops-panorama version:  <!-- Example: 0.1.0 -->
 
 <!--
     Describe in detail the new functionality you are proposing.

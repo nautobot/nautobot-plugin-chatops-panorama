@@ -61,6 +61,6 @@ def get_devices(connection: Panorama) -> dict:
             "serial": device.serial,
             "group_name": group_name,
             "ip_address": system_setting.ip_address,
-            "status": device.connected,
+            "status": device.is_active(),
         }
     return _device_dict

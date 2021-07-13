@@ -2,7 +2,8 @@
 
 from panos.panorama import Panorama
 from panos.device import SystemSettings
-import pynautobot
+from django.utils.text import slugify
+from nautobot.dcim.models import Site
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 
@@ -16,19 +17,8 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def connect_pynautobot() -> pynautobot.api:
-    """Provide pynautobot API object.
-
-    Returns:
-        pynetbox.api: Nautobot API object.
-    """
-    return pynautobot.api(PLUGIN_CFG["nautobot_url"], PLUGIN_CFG["nautobot_token"])
-
-
-def _get_or_create_site(nb, site):
-    site = nb.dcim.site.get(name=site)
-    if not site:
-        nb.dcim.site.create(name=site)
+def _get_or_create_site(site):
+    Site.objects.get_or_create(name=site, slug=slugify(site))
 
 
 def _get_group(groups, serial):

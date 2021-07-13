@@ -262,8 +262,6 @@ PLUGINS_CONFIG = {
         "panorama_host": os.environ.get("PANORAMA_HOST", ""),
         "panorama_user": os.environ.get("PANORAMA_USER", ""),
         "panorama_password": os.environ.get("PANORAMA_PASSWORD", ""),
-        "nautobot_url": os.environ.get("NAUTOBOT_URL", ""),
-        "nautobot_token": os.environ.get("NAUTOBOT_TOKEN", ""),
     },
 }
 

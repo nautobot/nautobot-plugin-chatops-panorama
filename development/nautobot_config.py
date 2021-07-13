@@ -253,6 +253,7 @@ PLUGINS_CONFIG = {
         "enable_slack": is_truthy(os.environ.get("NAUTOBOT_CHATOPS_ENABLE_SLACK", False)),
         "slack_api_token": os.environ.get("NAUTOBOT_CHATOPS_SLACK_API_TOKEN", ""),
         "slack_signing_secret": os.environ.get("NAUTOBOT_CHATOPS_SIGNING_SECRET", ""),
+        "slack_slash_command_prefix": os.environ.get("SLACK_SLASH_COMMAND_PREFIX", "/"),
         "enable_mattermost": is_truthy(os.environ.get("NAUTOBOT_CHATOPS_ENABLE_MATTERMOST", False)),
         "mattermost_api_token": os.environ.get("NAUTOBOT_CHATOPS_MATTERMOST_API_TOKEN", ""),
         "mattermost_url": os.environ.get("NAUTOBOT_CHATOPS_MATTERMOST_URL", ""),

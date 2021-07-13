@@ -4,6 +4,7 @@ from panos.panorama import Panorama
 from panos.device import SystemSettings
 from django.utils.text import slugify
 from nautobot.dcim.models import Site
+from nautobot.extras.models import Status
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 
@@ -18,7 +19,11 @@ def connect_panorama() -> Panorama:
 
 
 def _get_or_create_site(site):
-    Site.objects.get_or_create(name=site, slug=slugify(site))
+    active_status = Status.objects.get(name="Active")
+    site_obj, created = Site.objects.get_or_create(name=site, slug=slugify(site))
+    if site_obj.status != active_status:
+        site_obj.status = active_status
+        site_obj.save()
 
 
 def _get_group(groups, serial):

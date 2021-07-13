@@ -25,7 +25,6 @@ nautobot = { version = "*", optional = true, allow-prereleases = true }
 nautobot-chatops = "*"
 python = "^3.6"
 pan-os-python = "^1.3.0"
-pynautobot = "^1.0.2"
 
 [tool.poetry.dev-dependencies]
 bandit = "*"

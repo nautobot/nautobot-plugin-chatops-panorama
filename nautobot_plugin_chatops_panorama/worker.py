@@ -6,7 +6,7 @@ from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from .utils import connect_pynautobot, connect_panorama, get_devices, _get_or_create_site
+from .utils import connect_panorama, get_devices, _get_or_create_site
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE
 import json
 
@@ -101,13 +101,11 @@ def sync_firewalls(dispatcher):
     """Sync firewalls into Nautobot."""
     logger.info("Starting synchronization from Panorama.")
     pano = connect_panorama()
-    nb = connect_pynautobot()
     devices = get_devices(connection=pano)
     for device, data in devices.items():
         if not data["group_name"]:
             data["group_name"] = UNKNOWN_SITE
-        _get_or_create_site(nb, data["group_name"])
-        # logic to create site via group_name
+        _get_or_create_site(data["group_name"])
         # logic to create device type based on model
         # logic to create device
         # logic to create interfaces

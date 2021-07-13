@@ -2,7 +2,7 @@
 
 from panos.panorama import Panorama
 from panos.device import SystemSettings
-import pynetbox
+import pynautobot
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 
@@ -16,13 +16,13 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def connect_pynautobot() -> pynetbox.api:
+def connect_pynautobot() -> pynautobot.api:
     """Provide pynautobot API object.
 
     Returns:
         pynetbox.api: Nautobot API object.
     """
-    return pynetbox.api(PLUGIN_CFG["nautobot_url"], PLUGIN_CFG["nautobot_token"])
+    return pynautobot.api(PLUGIN_CFG["nautobot_url"], PLUGIN_CFG["nautobot_token"])
 
 
 def _get_or_create_site(nb, site):

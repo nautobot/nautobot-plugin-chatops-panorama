@@ -15,6 +15,21 @@ def connect_panorama() -> Panorama:
     return pano
 
 
+def _get_group(groups, serial):
+    """Sort through fetched groups and serials and return group.
+
+    Args:
+        groups (dict): Group names as keys and serial numbers in a list
+        serial (str): Serial to search for within group serial number lists
+
+    Returns:
+        group_name (str): Name of group serial is part of or None if serial not in a group
+    """
+    for k, v in groups.items():
+        if serial in v:
+            return k
+
+
 def get_devices(connection: Panorama) -> dict:
     """Method to obtain the devices connected to Panorama.
 
@@ -25,12 +40,27 @@ def get_devices(connection: Panorama) -> dict:
         dict: Dictionary of all devices attached to Panorama.
     """
     dev_list = connection.refresh_devices(expand_vsys=False, include_device_groups=False)
+
+    group_names = [device.name for device in connection.refresh_devices()]
+    group_xml_obj = connection.op("show devicegroups")
+    groups_and_devices = {}
+    for group in group_names:
+        if group not in groups_and_devices:
+            groups_and_devices[group] = []
+        groups_and_devices[group].extend(
+            [x.text for x in group_xml_obj.find(f".//entry[@name='{group}']").findall(".//serial")]
+        )
+
     _device_dict = {}
     for device in dev_list:
+        group_name = _get_group(groups_and_devices, device.serial)
+
         system_setting = device.find("", SystemSettings)
         _device_dict[system_setting.hostname] = {
             "hostname": system_setting.hostname,
             "serial": device.serial,
+            "group_name": group_name,
             "ip_address": system_setting.ip_address,
+            "status": device.connected,
         }
     return _device_dict

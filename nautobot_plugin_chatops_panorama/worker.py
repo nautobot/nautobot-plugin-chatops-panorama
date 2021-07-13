@@ -7,6 +7,7 @@ from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 from .utils import connect_panorama, get_devices
+import json
 
 
 logger = logging.getLogger("rq.worker")
@@ -92,3 +93,12 @@ def install_software(dispatcher, device, version, **kwargs):
         return CommandStatusChoices.STATUS_FAILED
     dispatcher.send_markdown(f"As requested, {version} has been installed on {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def sync_firewalls(dispatcher):
+    """Sync firewalls into Nautobot."""
+    logger.info("Starting synchronization from Panorama.")
+    pano = connect_panorama()
+    devices = get_devices(connection=pano)
+    return dispatcher.send_markdown(json.dumps(devices))

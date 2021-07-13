@@ -2,6 +2,7 @@
 
 from panos.panorama import Panorama
 from panos.device import SystemSettings
+import pynetbox
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 
@@ -13,6 +14,21 @@ def connect_panorama() -> Panorama:
         api_password=PLUGIN_CFG["panorama_password"],
     )
     return pano
+
+
+def connect_pynautobot() -> pynetbox.api:
+    """Provide pynautobot API object.
+
+    Returns:
+        pynetbox.api: Nautobot API object.
+    """
+    return pynetbox.api(PLUGIN_CFG["nautobot_url"], PLUGIN_CFG["nautobot_token"])
+
+
+def _get_or_create_site(nb, site):
+    site = nb.dcim.site.get(name=site)
+    if not site:
+        nb.dcim.site.create(name=site)
 
 
 def _get_group(groups, serial):
@@ -62,5 +78,7 @@ def get_devices(connection: Panorama) -> dict:
             "group_name": group_name,
             "ip_address": system_setting.ip_address,
             "status": device.is_active(),
+            # TODO (hackathon): Grab this via proxy to firewall to grab get_system_info()
+            "model": "PA-VM",
         }
     return _device_dict

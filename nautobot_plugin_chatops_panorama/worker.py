@@ -287,11 +287,14 @@ def get_pano_rules(dispatcher, **kwargs):
 
 
 @subcommand_of("panorama")
-def get_device_rules(dispatcher, **kwargs):
+def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     pano = connect_panorama()
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
+    # device = Device.objects.get(id=device)
+    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     device = pano.add(devices[0])
     rulebase = device.add(Rulebase())
     rules = SecurityRule.refreshall(rulebase)
@@ -299,11 +302,20 @@ def get_device_rules(dispatcher, **kwargs):
     for rule in rules:
         rule_list = list()
         rule_list.append(rule.name)
-        rule_list.append(rule.source)
-        rule_list.append(rule.destination)
-        rule_list.append(rule.service)
+        sources = ""
+        for src in rule.source:
+            sources += src + ", "
+        rule_list.append(sources[:-2])
+        destination = ""
+        for dst in rule.destination:
+            destination += dst + ", "
+        rule_list.append(destination[:-2])
+        service = ""
+        for svc in rule.service:
+            service += svc + ", "
+        rule_list.append(service[:-2])
         rule_list.append(rule.action)
-        all_rules.extend(rule_list)
+        all_rules.append(rule_list)
 
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED

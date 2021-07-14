@@ -268,11 +268,13 @@ def get_device_rules(dispatcher, **kwargs):
     rules = SecurityRule.refreshall(rulebase)
     all_rules = list()
     for rule in rules:
-        all_rules.append(rule.name)
-        all_rules.append(rule.source)
-        all_rules.append(rule.destination)
-        all_rules.append(rule.service)
-        all_rules.append(rule.action)
+        rule_list = list()
+        rule_list.append(rule.name)
+        rule_list.append(rule.source)
+        rule_list.append(rule.destination)
+        rule_list.append(rule.service)
+        rule_list.append(rule.action)
+        all_rules.extend(rule_list)
 
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED

@@ -2,10 +2,11 @@
 import logging
 
 from django_rq import job
-from nautobot.dcim.models import Device
+from nautobot.dcim.models import Device, Interface
 from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
+import json
 
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
@@ -18,7 +19,7 @@ from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_interfaces,
     _get_or_create_management_ip,
 )
-from nautobot_plugin_chatops_panorama.utils.panorama import connect_panorama, get_devices
+from nautobot_plugin_chatops_panorama.utils.panorama import connect_panorama, get_devices, start_packet_capute
 
 
 logger = logging.getLogger("rq.worker")
@@ -157,7 +158,58 @@ def validate_address_objects(dispatcher, device):
     return dispatcher.send_markdown(message)
 
 @subcommand_of("panorama")
-def capture_traffic(distpacher):
+def capture_traffic(dispatcher, device_id, filters):
     """Capture IP traffic on PANOS Device"""
     logger.info("Starting packet capturing.")
-    distpacher.multi_input_dialog("")
+    _devices = Device.objects.all()
+
+    if not device_id:
+        return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
+
+    _interfaces = Interface.objects.filter(device__id=device_id)
+    dialog_list = [
+        {
+            "type": "text",
+            "label": "Source Network",
+            "default": "0.0.0.0/0",
+        },
+        {
+            "type": "text",
+            "label": "Destination Network",
+            "default": "0.0.0.0/0",
+        },
+        {
+            "type": "text",
+            "label": "Destination Port",
+            "default": "any",
+        },
+        {
+            "type": "select",
+            "label": "Interface Name",
+            "choices": [(intf.name, intf.name) for intf in _interfaces],
+            "confirm": False
+        },
+        {
+            "type": "select",
+            "label": "IP Protocol",
+            "choices": [("TCP", "6"), ("UDP", "17")],
+            "confirm": False
+        }
+    ]
+    # + destination           Destination IP address
+    # + destination-netmask   Destination netmask
+    # + destination-port      Destination port
+    # + ingress-interface     Ingress traffic interface name
+    # + ipv6-only             IPv6 packet only
+    # + non-ip                Non-IP packet
+    # + protocol              IP protocol value
+    # + source                Source IP address
+    # + source-netmask        Source netmask
+    # + source-port           Source port
+    # + lacp                  LACP packet # include LACP packets
+    if not filters:
+        return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
+
+    dispatcher.send_markdown(json.dumps(filters))
+    
+

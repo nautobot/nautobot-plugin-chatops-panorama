@@ -125,6 +125,7 @@ def start_packet_capute(ip: str, commands: dict):
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
 
+    _get_pcap(ip)
 
 def _get_pcap(ip:str):
     """Downloads PCAP file from PANOS device

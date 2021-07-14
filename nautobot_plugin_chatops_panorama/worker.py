@@ -186,13 +186,20 @@ def validate_objects(dispatcher, device, object_type, device_group):
     object_results = []
     for s in services:
         computed_fields = s.get_computed_fields()
-        computed_objects = computed_fields[f"{object_type}_objects"]
-        if not computed_objects:
-            continue
 
-        if object_type == "address" or object_type == "full":
+        if object_type == "address" or object_type == "all":
+            object_type = "address"
+            computed_objects = computed_fields[f"{object_type}_objects"]
+            if not computed_objects:
+                continue
+
             object_results.extend(compare_address_objects(computed_objects.split(", "), pano))
-        if object_type == "service" or object_type == "full":
+        if object_type == "service" or object_type == "all":
+            object_type = "service"
+            computed_objects = computed_fields[f"{object_type}_objects"]
+            if not computed_objects:
+                continue
+
             object_results.extend(compare_service_objects(computed_objects.split(", "), pano))
 
     return dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)

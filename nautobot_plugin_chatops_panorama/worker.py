@@ -28,7 +28,8 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     compare_address_objects,
     compare_service_objects,
     get_api_key_api,
-    parse_all_rule_names
+    get_rule_match,
+    parse_all_rule_names,
 )
 
 
@@ -77,6 +78,20 @@ def panorama(subcommand, **kwargs):
     """Perform panorama and its subcommands."""
     return handle_subcommands("panorama", subcommand, **kwargs)
 
+@subcommand_of("panorama")
+def validate_rule_exists(dispatcher, device, src_ip):
+    """Verify that the rule exists within a device, via Panorama."""
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama validate-rule-exists")
+    action = f"panorama validate-rule-exists {device}" # Adding single quotes around city to preserve quotes.
+    if not src_ip:
+        return dispatcher.prompt_for_text(action_id=action, help_text="Please enter the Source IP.", label="SRC-IP")
+    pano = connect_panorama()
+    data = {"src_ip":"10.0.60.100", "dst_ip": "10.0.20.100", "protocol": "6", "dst_port": "636"}
+    rule_details = get_rule_match(connection=pano, five_tuple=data)
+
+    dispatcher.send_markdown(f"The version of Panorama is {rule_details}.")
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 @subcommand_of("panorama")
 def get_version(dispatcher):
@@ -186,18 +201,27 @@ def validate_objects(dispatcher, device, object_type, device_group):
         return dispatcher.send_markdown(f"No available services to validate against for {device}")
 
     object_results = []
+    names = set()
     for s in services:
         computed_fields = s.get_computed_fields()
-        computed_objects = computed_fields[f"{object_type}_objects"]
-        if not computed_objects:
-            continue
 
         if object_type == "address" or object_type == "all":
-            object_results.extend(compare_address_objects(computed_objects.split(", "), pano))
-        if object_type == "service" or object_type == "all":
-            object_results.extend(compare_service_objects(computed_objects.split(", "), pano))
+            computed_objects = computed_fields.get("address_objects")
+            obj_names = set(computed_objects.split(", "))
+            current_objs = obj_names.difference(names)
+            names.update(current_objs)
+            if computed_objects:
+                object_results.extend(compare_address_objects(current_objs, pano))
 
-    return dispatcher.send_large_table(("Name", "Object Type", "Status"), object_results)
+        if object_type == "service" or object_type == "all":
+            computed_objects = computed_fields.get("service_objects")
+            obj_names = set(computed_objects.split(", "))
+            current_objs = obj_names.difference(names)
+            names.update(current_objs)
+            if computed_objects:
+                object_results.extend(compare_service_objects(current_objs, pano))
+
+    return dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
 
 
 @subcommand_of("panorama")
@@ -212,9 +236,9 @@ def get_rules(dispatcher, device, **kwargs):
     params = {
         "key": api_key,
         "cmd": "<show><rule-hit-count><device-group><entry name='Demo'><pre-rulebase><entry name='security'><rules><all/></rules></entry></pre-rulebase></entry></device-group></rule-hit-count></show>",
-        "type": "op"
+        "type": "op",
     }
-    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    host = PLUGIN_CFG["panorama_host"].rstrip("/")
     url = f"https://{host}/api/"
     response = requests.get(url, params=params, verify=False)
     if not response.ok:
@@ -227,4 +251,3 @@ def get_rules(dispatcher, device, **kwargs):
         return_str += f"Rule {idx+1}\t\t{name}\n"
     dispatcher.send_markdown(return_str)
     return CommandStatusChoices.STATUS_SUCCEEDED
-

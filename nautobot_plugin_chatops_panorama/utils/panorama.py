@@ -52,6 +52,36 @@ def _get_group(groups, serial):
             return k
 
 
+def get_rule_match(connection: Panorama, five_tuple: dict) -> dict:
+    """Method to obtain the devices connected to Panorama.
+    Args:
+        connection (Panorama): Connection object to Panorama.
+    Returns:
+        dict: Dictionary of all devices attached to Panorama.
+    """
+    cmd = f"""
+        <test>
+            <security-policy-match>
+                <source>{five_tuple["src_ip"]}</source>
+                <destination>{five_tuple["dst_ip"]}</destination>
+                <protocol>{five_tuple["protocol"]}</protocol>
+                <destination-port>{five_tuple["dst_port"]}</destination-port>
+            </security-policy-match>
+        </test>"""
+    params = {
+        "key": get_api_key_api(),
+        "cmd": cmd,
+        "type": "op",
+        # TODO: no hard coding
+        "target": "007055000127282"
+    }
+
+    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    url = f"https://{host}/api/"
+    return requests.get(url, params=params, verify=False).text
+
+
+
 def get_devices(connection: Panorama) -> dict:
     """Method to obtain the devices connected to Panorama.
 
@@ -132,6 +162,7 @@ def compare_service_objects(service_objects, connection):
 
         # Parse out the IP address and CIDR
         protocol, port = svc.split("_")[1:]
+        protocol = protocol.lower()
 
         # Build Panos Objects to attempt to compare to.
         svc_obj = ServiceObject(name=svc, protocol=protocol, destination_port=port)
@@ -147,9 +178,9 @@ def compare_service_objects(service_objects, connection):
 
         status_msg = ""
         if panos_obj.protocol != protocol:
-            status_msg += f"Nautobot protocol: {protocol}, Panorama protocol: {panos_obj.protocol}"
+            status_msg += f"Incorrect protocol: ({protocol}/{panos_obj.protocol})"
         if panos_obj.destination_port != port:
-            status_msg += f" Nautobot port: {port}, Panorama port: {panos_obj.destination_port}"
+            status_msg += f"Incorrect port: ({port}/{panos_obj.destination_port})"
 
         if not status_msg:
             loop_result.append(f"Nautobot and Panorama are in sync for {svc}.")

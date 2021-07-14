@@ -6,8 +6,15 @@ from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from .utils import connect_panorama, get_devices, _get_or_create_site
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE
+from .utils import (
+    connect_panorama,
+    get_devices,
+    _get_or_create_site,
+    _get_or_create_device_type,
+    _get_or_create_device,
+    _get_or_create_device
+)
+from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, INTERFACES
 import json
 
 
@@ -105,9 +112,12 @@ def sync_firewalls(dispatcher):
     for device, data in devices.items():
         if not data["group_name"]:
             data["group_name"] = UNKNOWN_SITE
-        _get_or_create_site(data["group_name"])
+        # logic to create site via group_name
+        site= _get_or_create_site(data["group_name"])
         # logic to create device type based on model
+        device_type = _get_or_create_device_type(data["model"])
         # logic to create device
+        device = _get_or_create_device(device, data["serial"], site, device_type)
         # logic to create interfaces
         # logic to assign ip_address to mgmt interface
     return dispatcher.send_markdown(json.dumps(devices))

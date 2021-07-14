@@ -52,7 +52,7 @@ def _get_group(groups, serial):
             return k
 
 
-def get_rule_match(connection: Panorama, five_tuple: dict) -> dict:
+def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
     """Method to obtain the devices connected to Panorama.
     Args:
         connection (Panorama): Connection object to Panorama.
@@ -73,7 +73,7 @@ def get_rule_match(connection: Panorama, five_tuple: dict) -> dict:
         "cmd": cmd,
         "type": "op",
         # TODO: no hard coding
-        "target": "007055000127282"
+        "target": serial,
     }
 
     host = PLUGIN_CFG['panorama_host'].rstrip("/")
@@ -145,7 +145,7 @@ def compare_address_objects(address_objects, connection):
             continue
 
         if panos_obj.value != ip_address:
-            loop_result.append(f"Descrepency!! Nautobot value: {ip_address}, Panorama value: {panos_obj.value}")
+            loop_result.append(f"Discrepancy!! Nautobot value: {ip_address}, Panorama value: {panos_obj.value}")
         else:
             loop_result.append(f"Nautobot and Panorama are in sync for {addr}.")
 

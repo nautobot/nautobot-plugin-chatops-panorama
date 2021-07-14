@@ -80,16 +80,44 @@ def panorama(subcommand, **kwargs):
 
 
 @subcommand_of("panorama")
-def validate_rule_exists(dispatcher, device, src_ip):
+def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port):
     """Verify that the rule exists within a device, via Panorama."""
-    if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama validate-rule-exists")
-    action = f"panorama validate-rule-exists {device}"  # Adding single quotes around city to preserve quotes.
-    if not src_ip:
-        return dispatcher.prompt_for_text(action_id=action, help_text="Please enter the Source IP.", label="SRC-IP")
+
+    dialog_list = [
+        {
+            "type": "text",
+            "label": "Device",
+        },
+        {
+            "type": "text",
+            "label": "Source IP",
+        },
+        {
+            "type": "text",
+            "label": "Destination IP",
+        },
+        {
+            "type": "select",
+            "label": "Dest IP",
+            "choices": [("TCP", "6"), ("UDP", "17")],
+            "default": ("TCP", "6"),
+        },
+        {
+            "type": "text",
+            "label": "Destination dst_port",
+            "default": "443",
+        },
+    ]
+    if not [device, src_ip, dst_ip, protocol, dst_port]:
+        dispatcher.multi_input_dialog("panorama", "validate-rule-exists", "Verify if rule exists", dialog_list)
+        return CommandStatusChoices.STATUS_SUCCEEDED
+
+    serial = get_devices().get(device, {}).get("serial")
+    if not serial:
+        return dispatcher.send_markdown(f"The device {device} was not found.")
     pano = connect_panorama()
-    data = {"src_ip": "10.0.60.100", "dst_ip": "10.0.20.100", "protocol": "6", "dst_port": "636"}
-    rule_details = get_rule_match(connection=pano, five_tuple=data)
+    data = {"src_ip":src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
+    rule_details = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
     dispatcher.send_markdown(f"The version of Panorama is {rule_details}.")
     return CommandStatusChoices.STATUS_SUCCEEDED

@@ -1,4 +1,5 @@
 """Methods for interactions with Panorama."""
+from typing import List
 
 from panos.panorama import Panorama
 from panos.device import SystemSettings
@@ -66,7 +67,7 @@ def _get_or_create_device(device: str, serial: str, site: Site, device_type: Dev
     )[0]
 
 
-def _get_or_create_interfaces(device: Device) -> Interface:
+def _get_or_create_interfaces(device: Device) -> List[Interface]:
     """Generate standard interfaces for Palo devices."""
     interfaces = []
     for intf in constant.INTERFACES:

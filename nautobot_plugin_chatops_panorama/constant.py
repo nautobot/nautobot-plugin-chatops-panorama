@@ -16,4 +16,4 @@ INTERFACES = [
 
 UNKNOWN_SITE = "Unknown"
 
-ALLOWED_OBJECTS = ("address", "service")
+ALLOWED_OBJECTS = ("all", "address", "service")

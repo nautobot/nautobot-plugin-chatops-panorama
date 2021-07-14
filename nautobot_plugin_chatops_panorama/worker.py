@@ -187,7 +187,7 @@ def validate_objects(dispatcher, device, object_type, device_group):
         if not computed_objects:
             continue
 
-        if object_type == "address":
+        if object_type == "address" or object_type == "all":
             object_results.extend(compare_address_objects(computed_objects.split(", "), pano))
         if object_type == "service" or object_type == "all":
             object_results.extend(compare_service_objects(computed_objects.split(", "), pano))

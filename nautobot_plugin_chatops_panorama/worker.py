@@ -291,7 +291,7 @@ def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     pano = connect_panorama()
     if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
+        return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
     # device = Device.objects.get(id=device)
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)

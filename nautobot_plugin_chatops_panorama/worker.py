@@ -113,7 +113,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     pano = connect_panorama()
-    serial = get_devices(connection=pano,).get(device, {}).get("serial")
+    serial = get_devices(connection=pano).get(device, {}).get("serial")
     if not serial:
         return dispatcher.send_markdown(f"The device {device} was not found.")
 

@@ -148,9 +148,9 @@ def compare_service_objects(service_objects, connection):
 
         status_msg = ""
         if panos_obj.protocol != protocol:
-            status_msg += f"Nautobot protocol: {protocol}, Panorama protocol: {panos_obj.protocol}"
+            status_msg += f"Incorrect protocol: ({protocol}/{panos_obj.protocol})"
         if panos_obj.destination_port != port:
-            status_msg += f" Nautobot port: {port}, Panorama port: {panos_obj.destination_port}"
+            status_msg += f"Incorrect port: ({port}/{panos_obj.destination_port})"
 
         if not status_msg:
             loop_result.append(f"Nautobot and Panorama are in sync for {svc}.")

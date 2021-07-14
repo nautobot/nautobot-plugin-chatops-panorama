@@ -51,6 +51,7 @@ def _get_or_create_device(device: str, serial: str, site: Site, device_type: Dev
         site=site,
         platform=device_platform_obj,
         device_type=device_type,
+        serial=serial
     )[0]
     device_obj.custom_field_data['public_ipv4'] = '3.13.252.97'
     device_obj.save()

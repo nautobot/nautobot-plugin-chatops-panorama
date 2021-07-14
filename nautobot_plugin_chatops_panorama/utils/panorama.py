@@ -19,7 +19,7 @@ def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
 
     params = {"type": "keygen", "user": PLUGIN_CFG["panorama_user"], "password": PLUGIN_CFG["panorama_password"]}
 
-    response = requests.get(f"{url}/api/", params=params)
+    response = requests.get(f"https://{url}/api/", params=params)
     if response.status_code != 200:
         raise RequestException(f"Something went wrong while making a request. Reason: {response.text}")
 

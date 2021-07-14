@@ -22,7 +22,7 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
   celery_worker:
-    image: "nautobot-plugin-chatops-infoblox/nautobot:${NAUTOBOT_VER}-py${PYTHON_VER}"
+    image: "nautobot-plugin-chatops-panorama/nautobot:${NAUTOBOT_VER}-py${PYTHON_VER}"
     entrypoint: "nautobot-server celery worker -B -l INFO"
     healthcheck:
       interval: 5s

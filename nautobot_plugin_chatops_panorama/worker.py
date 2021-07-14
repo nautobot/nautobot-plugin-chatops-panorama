@@ -278,3 +278,10 @@ def get_device_rules(dispatcher, **kwargs):
 
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def i_love_you(dispatcher, **kwargs):
+    """When you want to tell Panorama how much you love it."""
+    dispatcher.send_image("img/han-solo-i-know.jpg")
+    return CommandStatusChoices.STATUS_SUCCEEDED

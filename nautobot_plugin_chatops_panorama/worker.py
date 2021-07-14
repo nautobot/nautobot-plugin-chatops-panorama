@@ -253,7 +253,7 @@ def get_rules(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 @subcommand_of("panorama")
-def test_mik(dispatcher, device, **kwargs):
+def mikhail(dispatcher, device, **kwargs):
     """Test Mikhail idea."""
     pano = connect_panorama()
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)

@@ -12,9 +12,10 @@ from .utils import (
     _get_or_create_site,
     _get_or_create_device_type,
     _get_or_create_device,
+    _get_or_create_interfaces,
+    _get_or_create_management_ip,
 )
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, INTERFACES
-import json
 
 
 logger = logging.getLogger("rq.worker")
@@ -108,15 +109,22 @@ def sync_firewalls(dispatcher):
     logger.info("Starting synchronization from Panorama.")
     pano = connect_panorama()
     devices = get_devices(connection=pano)
-    for device, data in devices.items():
+    device_status = []
+    for name, data in devices.items():
         if not data["group_name"]:
             data["group_name"] = UNKNOWN_SITE
         # logic to create site via group_name
-        site= _get_or_create_site(data["group_name"])
+        site = _get_or_create_site(data["group_name"])
         # logic to create device type based on model
         device_type = _get_or_create_device_type(data["model"])
         # logic to create device
-        device = _get_or_create_device(device, data["serial"], site, device_type)
+        device = _get_or_create_device(name, data["serial"], site, device_type, data["os_version"])
         # logic to create interfaces
+        interfaces = _get_or_create_interfaces(device)
         # logic to assign ip_address to mgmt interface
-    return dispatcher.send_markdown(json.dumps(devices))
+        mgmt_ip = _get_or_create_management_ip(device, interfaces[0], data["ip_address"])
+
+        # Add info for device creation to be sent to table creation at the end of task
+        status = (name, site, device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
+        device_status.append(status)
+    return dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)

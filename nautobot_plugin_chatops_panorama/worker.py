@@ -251,3 +251,18 @@ def get_rules(dispatcher, device, **kwargs):
         return_str += f"Rule {idx+1}\t\t{name}\n"
     dispatcher.send_markdown(return_str)
     return CommandStatusChoices.STATUS_SUCCEEDED
+
+@subcommand_of("panorama")
+def test_mik(dispatcher, device, **kwargs):
+    """Test Mikhail idea."""
+    pano = connect_panorama()
+    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    device = pano.add(devices[0])
+    rulebase = device.add(Rulebase())
+    rules = SecurityRule.refreshall(rulebase)
+    all_rules = list()
+    for rule in rules:
+        all_rules.append(rule.name)
+    dispatcher.send_markdown(all_rules)
+    return CommandStatusChoices.STATUS_SUCCEEDED
+    

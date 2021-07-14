@@ -1,5 +1,8 @@
 """Methods for interactions with Panorama."""
 
+import requests
+import defusedxml.ElementTree as ET
+from requests.exceptions import RequestException
 from panos.panorama import Panorama
 from panos.device import SystemSettings
 from django.utils.text import slugify
@@ -8,6 +11,25 @@ from nautobot.extras.models import Status
 from nautobot.ipam.models import IPAddress
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 from . import constant
+
+
+def get_api_key_api(url: str) -> str:
+    """Returns the API key.
+    Args:
+        url (str): URL of the device
+    Returns:
+        The API key.
+    """
+    url = url.rstrip("/")
+
+    params = {"type": "keygen", "user": PLUGIN_CFG["panorama_user"], "password": PLUGIN_CFG["panorama_password"]}
+
+    response = requests.get(f"{url}/api/", params=params)
+    if response.status_code != 200:
+        raise RequestException(f"Something went wrong while making a request. Reason: {response.text}")
+
+    xml_data = ET.fromstring(response.text)
+    return xml_data.find(".//key").text
 
 
 def connect_panorama() -> Panorama:

@@ -27,7 +27,8 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_devices,
     compare_address_objects,
     compare_service_objects,
-    get_api_key_api
+    get_api_key_api,
+    parse_all_rule_names
 )
 
 
@@ -219,7 +220,11 @@ def get_rules(dispatcher, device, **kwargs):
     if not response.ok:
         dispatcher.send_markdown(f"Error retrieving device rules.")
         return CommandStatusChoices.STATUS_FAILED
-    else:
-        dispatcher.send_markdown(response.text)
-        return CommandStatusChoices.STATUS_SUCCEEDED
+
+    rule_names = parse_all_rule_names(response.text)
+    return_str = ""
+    for idx, name in enumerate(rule_names):
+        return_str += f"Rule {idx+1}\t\t{name}\n"
+    dispatcher.send_markdown(return_str)
+    return CommandStatusChoices.STATUS_SUCCEEDED
 

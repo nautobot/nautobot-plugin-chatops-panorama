@@ -13,7 +13,7 @@ from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 from panos.policies import Rulebase, SecurityRule
 
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS
+from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_site,
     _get_or_create_device_type,
@@ -210,9 +210,9 @@ def get_rules(dispatcher, device, **kwargs):
     params = {
         "key": "LUFRPT1CMVFHYzlESUxaUDY0L2dPMFBHenkrNDZWNjg9dVNxWU5YRncxdkFkNVp6dFVCUy9jM0orMkVwSklmUTlLYlhER1BPV3c1K1lFaFlvNU5OTlZlaXQ4RHg1VkZKKw==",
         "cmd": "<show><rule-hit-count><device-group><entry name='Demo'><pre-rulebase><entry name='security'><rules><all/></rules></entry></pre-rulebase></entry></device-group></rule-hit-count></show>",
-        "type": "op"
+        "type": "op",
     }
-    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    host = PLUGIN_CFG["panorama_host"].rstrip("/")
     url = f"https://{host}/api/"
     response = requests.get(url, params=params, verify=False)
     if not response.ok:
@@ -221,4 +221,3 @@ def get_rules(dispatcher, device, **kwargs):
     else:
         dispatcher.send_markdown(response.text)
         return CommandStatusChoices.STATUS_SUCCEEDED
-

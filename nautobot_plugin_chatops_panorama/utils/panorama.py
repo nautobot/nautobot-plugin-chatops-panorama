@@ -132,6 +132,7 @@ def compare_service_objects(service_objects, connection):
 
         # Parse out the IP address and CIDR
         protocol, port = svc.split("_")[1:]
+        protocol = protocol.lower()
 
         # Build Panos Objects to attempt to compare to.
         svc_obj = ServiceObject(name=svc, protocol=protocol, destination_port=port)

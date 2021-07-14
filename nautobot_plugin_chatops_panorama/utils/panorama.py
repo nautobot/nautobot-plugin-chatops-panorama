@@ -1,14 +1,10 @@
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 from panos.panorama import Panorama
-from panos.firewall import Firewall
-from panos.device import SystemSettings
-from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
-
+from panos.objects import AddressObject, ServiceObject
+from panos.errors import PanObjectMissing
 from requests.exceptions import RequestException
-
 import defusedxml.ElementTree as ET
-
 import requests
 
 
@@ -94,3 +90,72 @@ def get_devices(connection: Panorama) -> dict:
             "os_version": device_system_info["sw-version"],
         }
     return _device_dict
+
+
+def compare_address_objects(address_objects, connection):
+    results = []
+    for addr in address_objects:
+        # Set initial values to be used in final results (row)
+        loop_result = [addr, "address"]
+
+        # Parse out the IP address and CIDR
+        oct1, oct2, oct3, oct4, cidr = addr.split("_")[1:]
+        ip_address = f"{oct1}.{oct2}.{oct3}.{oct4}/{cidr}"
+
+        # Build Panos Objects to attempt to compare to.
+        addr_obj = AddressObject(name=addr, value=ip_address)
+        panos_obj = connection.add(addr_obj)
+
+        # Catch exception if object doesn't already exist to prevent invalid comparison
+        try:
+            panos_obj.refresh()
+        except PanObjectMissing:
+            loop_result.append("Does not exist")
+            results.append(loop_result)
+            continue
+
+        if panos_obj.value != ip_address:
+            loop_result.append(f"Descrepency!! Nautobot value: {ip_address}, Panorama value: {panos_obj.value}")
+        else:
+            loop_result.append(f"Nautobot and Panorama are in sync for {addr}.")
+
+        results.append(loop_result)
+
+    return results
+
+
+def compare_service_objects(service_objects, connection):
+    results = []
+    for svc in service_objects:
+        # Set initial values to be used in final results (row)
+        loop_result = [svc, "service"]
+
+        # Parse out the IP address and CIDR
+        protocol, port = svc.split("_")[1:]
+
+        # Build Panos Objects to attempt to compare to.
+        svc_obj = ServiceObject(name=svc, protocol=protocol, destination_port=port)
+        panos_obj = connection.add(svc_obj)
+
+        # Catch exception if object doesn't already exist to prevent invalid comparison
+        try:
+            panos_obj.refresh()
+        except PanObjectMissing:
+            loop_result.append("Does not exist")
+            results.append(loop_result)
+            continue
+
+        status_msg = ""
+        if panos_obj.protocol != protocol:
+            status_msg += f"Nautobot protocol: {protocol}, Panorama protocol: {panos_obj.protocol}"
+        if panos_obj.destination_port != port:
+            status_msg += f" Nautobot port: {port}, Panorama port: {panos_obj.port}"
+
+        if not status_msg:
+            loop_result.append(f"Nautobot and Panorama are in sync for {svc}.")
+        else:
+            loop_result.append(status_msg)
+
+        results.append(loop_result)
+
+    return results

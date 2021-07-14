@@ -211,9 +211,9 @@ def get_rules(dispatcher, device, **kwargs):
     params = {
         "key": api_key,
         "cmd": "<show><rule-hit-count><device-group><entry name='Demo'><pre-rulebase><entry name='security'><rules><all/></rules></entry></pre-rulebase></entry></device-group></rule-hit-count></show>",
-        "type": "op"
+        "type": "op",
     }
-    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    host = PLUGIN_CFG["panorama_host"].rstrip("/")
     url = f"https://{host}/api/"
     response = requests.get(url, params=params, verify=False)
     if not response.ok:
@@ -222,4 +222,3 @@ def get_rules(dispatcher, device, **kwargs):
     else:
         dispatcher.send_markdown(response.text)
         return CommandStatusChoices.STATUS_SUCCEEDED
-

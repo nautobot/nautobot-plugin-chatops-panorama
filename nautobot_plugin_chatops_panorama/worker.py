@@ -155,3 +155,9 @@ def validate_address_objects(dispatcher, device):
     message = ", ".join([s.get_computed_fields()["address_object"] for s in services])
 
     return dispatcher.send_markdown(message)
+
+@subcommand_of("panorama")
+def capture_traffic(distpacher):
+    """Capture IP traffic on PANOS Device"""
+    logger.info("Starting packet capturing.")
+    distpacher.multi_input_dialog("")

@@ -229,13 +229,13 @@ def validate_objects(dispatcher, device, object_type, device_group):
 
 
 @subcommand_of("panorama")
-def get_rules(dispatcher, device, **kwargs):
+def get_pano_rules(dispatcher, **kwargs):
     """Get list of firewall rules by name."""
     logger.info("Pulling list of firewall rules by name.")
     pano = connect_panorama()
-    if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
-    device = Device.objects.get(id=device)
+    # if not device:
+    #     return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
+    # device = Device.objects.get(id=device)
     api_key = get_api_key_api()
     params = {
         "key": api_key,
@@ -258,15 +258,21 @@ def get_rules(dispatcher, device, **kwargs):
 
 
 @subcommand_of("panorama")
-def mikhail(dispatcher, device, **kwargs):
-    """Test Mikhail idea."""
+def get_device_rules(dispatcher, **kwargs):
+    """Get list of firewall rules with details."""
     pano = connect_panorama()
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
     device = pano.add(devices[0])
     rulebase = device.add(Rulebase())
     rules = SecurityRule.refreshall(rulebase)
     all_rules = list()
     for rule in rules:
         all_rules.append(rule.name)
-    dispatcher.send_markdown(all_rules)
+        all_rules.append(rule.source)
+        all_rules.append(rule.destination)
+        all_rules.append(rule.service)
+        all_rules.append(rule.action)
+
+    dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED

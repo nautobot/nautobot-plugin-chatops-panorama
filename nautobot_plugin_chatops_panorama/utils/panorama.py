@@ -3,13 +3,13 @@ from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 from panos.panorama import Panorama
 from panos.firewall import Firewall
 from panos.device import SystemSettings
+from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 from requests.exceptions import RequestException
 
 import defusedxml.ElementTree as ET
 
 import requests
-
 
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:

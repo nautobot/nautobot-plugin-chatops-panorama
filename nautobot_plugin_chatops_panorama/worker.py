@@ -2,7 +2,8 @@
 import logging
 
 from django_rq import job
-
+from nautobot.dcim.models import Device
+from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
@@ -21,6 +22,13 @@ from nautobot_plugin_chatops_panorama.utils.panorama import connect_panorama, ge
 
 
 logger = logging.getLogger("rq.worker")
+
+
+def prompt_for_nautobot_device(dispatcher, command):
+    """Prompt user for firewall device within Nautobot."""
+    _devices = Device.objects.all()
+    dispatcher.prompt_from_menu(command, "Select a Nautobot Device", [(dev.name, str(dev.id)) for dev in _devices])
+    return CommandStatusChoices.STATUS_ERRORED
 
 
 def prompt_for_device(dispatcher, command, conn):
@@ -130,3 +138,20 @@ def sync_firewalls(dispatcher):
         status = (name, site, device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
         device_status.append(status)
     return dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)
+
+
+@subcommand_of("panorama")
+def validate_address_objects(dispatcher, device):
+    """Validate Address Objects exist for a device."""
+    logger.info("Starting synchronization from Panorama.")
+    pano = connect_panorama()
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama validate-address-objects")
+    device = Device.objects.get(id=device)
+    services = Service.objects.filter(device=device)
+    if not services:
+        return dispatcher.send_markdown(f"No available services to validate against for {device}")
+
+    message = ", ".join([s.get_computed_fields()["address_object"] for s in services])
+
+    return dispatcher.send_markdown(message)

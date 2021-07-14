@@ -52,6 +52,36 @@ def _get_group(groups, serial):
             return k
 
 
+def get_rule_match(connection: Panorama, five_tuple: dict) -> dict:
+    """Method to obtain the devices connected to Panorama.
+    Args:
+        connection (Panorama): Connection object to Panorama.
+    Returns:
+        dict: Dictionary of all devices attached to Panorama.
+    """
+    cmd = f"""
+        <test>
+            <security-policy-match>
+                <source>{five_tuple["src_ip"]}</source>
+                <destination>{five_tuple["dst_ip"]}</destination>
+                <protocol>{five_tuple["protocol"]}</protocol>
+                <destination-port>{five_tuple["dst_port"]}</destination-port>
+            </security-policy-match>
+        </test>"""
+    params = {
+        "key": get_api_key_api(),
+        "cmd": cmd,
+        "type": "op",
+        # TODO: no hard coding
+        "target": "007055000127282"
+    }
+
+    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    url = f"https://{host}/api/"
+    return requests.get(url, params=params, verify=False).text
+
+
+
 def get_devices(connection: Panorama) -> dict:
     """Method to obtain the devices connected to Panorama.
 

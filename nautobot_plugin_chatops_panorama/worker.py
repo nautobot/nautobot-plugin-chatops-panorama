@@ -12,7 +12,6 @@ from .utils import (
     _get_or_create_site,
     _get_or_create_device_type,
     _get_or_create_device,
-    _get_or_create_device
 )
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, INTERFACES
 import json

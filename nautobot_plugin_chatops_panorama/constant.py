@@ -9,7 +9,7 @@ INTERFACES = [
     "ethernet0/2",
     "ethernet0/3",
     "ethernet0/4",
-    "ethernet05",
+    "ethernet0/5",
     "ethernet0/6",
     "ethernet0/7",
 ]

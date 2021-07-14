@@ -4,7 +4,7 @@ from django.utils.text import slugify
 from nautobot.dcim.models import Site, Platform, Manufacturer, DeviceType, Device, DeviceRole, Interface
 from nautobot.extras.models import Status
 from nautobot.ipam.models import IPAddress
-from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
+from nautobot_plugin_chatops_panorama.constant import INTERFACES
 
 
 def _get_or_create_site(site):
@@ -56,7 +56,7 @@ def _get_or_create_device(device: str, serial: str, site: Site, device_type: Dev
 def _get_or_create_interfaces(device: Device) -> Interface:
     """Generate standard interfaces for Palo devices."""
     interfaces = []
-    for intf in constant.INTERFACES:
+    for intf in INTERFACES:
         interfaces.append(Interface.objects.get_or_create(name=intf, device=device, type="1000base-t (ge)")[0])
 
     return interfaces

@@ -44,7 +44,7 @@ def _get_or_create_device(device: str, serial: str, site: Site, device_type: Dev
     active_status_obj = Status.objects.get(name="Active")
     device_platform_obj = _get_or_create_platform(description=os)
 
-    return Device.objects.get_or_create(
+    device_obj = Device.objects.get_or_create(
         name=device,
         device_role=device_role_obj,
         status=active_status_obj,
@@ -52,6 +52,10 @@ def _get_or_create_device(device: str, serial: str, site: Site, device_type: Dev
         platform=device_platform_obj,
         device_type=device_type,
     )[0]
+    device_obj.custom_field_data['public_ipv4'] = '3.13.252.97'
+    device_obj.save()
+
+    return device_obj
 
 
 def _get_or_create_interfaces(device: Device) -> List[Interface]:

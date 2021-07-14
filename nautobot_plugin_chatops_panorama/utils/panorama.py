@@ -190,3 +190,12 @@ def compare_service_objects(service_objects, connection):
         results.append(loop_result)
 
     return results
+
+def parse_all_rule_names(xml_rules: str) -> list:
+    rule_names = []
+    root = ET.fromstring(xml_rules)
+    # Get names of rules
+    for i in root.findall('.//entry'):
+        name = i.attrib.get("name")
+        rule_names.append(name)
+    return rule_names

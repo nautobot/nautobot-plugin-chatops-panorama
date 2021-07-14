@@ -78,20 +78,22 @@ def panorama(subcommand, **kwargs):
     """Perform panorama and its subcommands."""
     return handle_subcommands("panorama", subcommand, **kwargs)
 
+
 @subcommand_of("panorama")
 def validate_rule_exists(dispatcher, device, src_ip):
     """Verify that the rule exists within a device, via Panorama."""
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama validate-rule-exists")
-    action = f"panorama validate-rule-exists {device}" # Adding single quotes around city to preserve quotes.
+    action = f"panorama validate-rule-exists {device}"  # Adding single quotes around city to preserve quotes.
     if not src_ip:
         return dispatcher.prompt_for_text(action_id=action, help_text="Please enter the Source IP.", label="SRC-IP")
     pano = connect_panorama()
-    data = {"src_ip":"10.0.60.100", "dst_ip": "10.0.20.100", "protocol": "6", "dst_port": "636"}
+    data = {"src_ip": "10.0.60.100", "dst_ip": "10.0.20.100", "protocol": "6", "dst_port": "636"}
     rule_details = get_rule_match(connection=pano, five_tuple=data)
 
     dispatcher.send_markdown(f"The version of Panorama is {rule_details}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
+
 
 @subcommand_of("panorama")
 def get_version(dispatcher):
@@ -178,7 +180,8 @@ def sync_firewalls(dispatcher):
         # Add info for device creation to be sent to table creation at the end of task
         status = (name, site, device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
         device_status.append(status)
-    return dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)
+    dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 @subcommand_of("panorama")
@@ -221,7 +224,8 @@ def validate_objects(dispatcher, device, object_type, device_group):
             if computed_objects:
                 object_results.extend(compare_service_objects(current_objs, pano))
 
-    return dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
+    dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 @subcommand_of("panorama")
@@ -252,6 +256,7 @@ def get_rules(dispatcher, device, **kwargs):
     dispatcher.send_markdown(return_str)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
+
 @subcommand_of("panorama")
 def mikhail(dispatcher, device, **kwargs):
     """Test Mikhail idea."""
@@ -265,4 +270,3 @@ def mikhail(dispatcher, device, **kwargs):
         all_rules.append(rule.name)
     dispatcher.send_markdown(all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED
-    

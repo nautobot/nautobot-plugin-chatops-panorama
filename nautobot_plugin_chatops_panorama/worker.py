@@ -2,20 +2,22 @@
 import logging
 
 from django_rq import job
+
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
+
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from .utils import (
-    connect_panorama,
-    get_devices,
+
+from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, INTERFACES
+from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_site,
     _get_or_create_device_type,
     _get_or_create_device,
     _get_or_create_interfaces,
     _get_or_create_management_ip,
 )
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, INTERFACES
+from nautobot_plugin_chatops_panorama.utils.panorama import connect_panorama, get_devices
 
 
 logger = logging.getLogger("rq.worker")

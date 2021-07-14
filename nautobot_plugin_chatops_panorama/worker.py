@@ -196,7 +196,7 @@ def validate_objects(dispatcher, device, object_type, device_group):
         if object_type == "service" or object_type == "all":
             object_results.extend(compare_service_objects(computed_objects.split(", "), pano))
 
-    return dispatcher.send_large_table(("Name", "Object Type", "Status"), object_results)
+    return dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
 
 
 @subcommand_of("panorama")

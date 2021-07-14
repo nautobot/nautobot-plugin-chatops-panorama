@@ -13,7 +13,7 @@ from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 from panos.policies import Rulebase, SecurityRule
 
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS
+from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_site,
     _get_or_create_device_type,
@@ -27,6 +27,7 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_devices,
     compare_address_objects,
     compare_service_objects,
+    get_api_key_api
 )
 
 

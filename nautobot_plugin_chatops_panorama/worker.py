@@ -274,7 +274,7 @@ def get_device_rules(dispatcher, **kwargs):
         rule_list.append(rule.destination)
         rule_list.append(rule.service)
         rule_list.append(rule.action)
-        all_rules.extend(rule_list)
+        all_rules.append(rule_list)
 
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED

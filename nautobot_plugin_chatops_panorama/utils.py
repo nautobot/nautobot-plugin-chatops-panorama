@@ -3,11 +3,7 @@
 from panos.panorama import Panorama
 from panos.device import SystemSettings
 from django.utils.text import slugify
-<<<<<<< HEAD
 from nautobot.dcim.models import Site, Platform, Manufacturer, DeviceType, Device, DeviceRole, Interface
-=======
-from nautobot.dcim.models import Site
->>>>>>> d35ba2279ab10743fb6264146d65562abd7d14fb
 from nautobot.extras.models import Status
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 

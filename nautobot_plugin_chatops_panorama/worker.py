@@ -112,6 +112,9 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         dispatcher.multi_input_dialog("panorama", "validate-rule-exists", "Verify if rule exists", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
+    serial = get_devices().get(device, {}).get("serial")
+    if not serial:
+        return dispatcher.send_markdown(f"The device {device} was not found.")
     pano = connect_panorama()
     data = {"src_ip":src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
     rule_details = get_rule_match(connection=pano, five_tuple=data, serial=serial)

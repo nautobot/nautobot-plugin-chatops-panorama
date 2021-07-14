@@ -286,7 +286,7 @@ def get_pano_rules(dispatcher, **kwargs):
 
 
 @subcommand_of("panorama")
-def get_device_rules(dispatcher, device **kwargs):
+def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     pano = connect_panorama()
     if not device:

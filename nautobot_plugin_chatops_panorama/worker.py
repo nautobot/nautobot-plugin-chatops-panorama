@@ -31,6 +31,7 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_api_key_api,
     get_rule_match,
     parse_all_rule_names,
+    start_packet_capture
 )
 
 

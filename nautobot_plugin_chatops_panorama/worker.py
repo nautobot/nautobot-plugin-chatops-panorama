@@ -200,18 +200,25 @@ def validate_objects(dispatcher, device, object_type, device_group):
         return dispatcher.send_markdown(f"No available services to validate against for {device}")
 
     object_results = []
+    names = set()
     for s in services:
         computed_fields = s.get_computed_fields()
 
         if object_type == "address" or object_type == "all":
             computed_objects = computed_fields.get("address_objects")
+            obj_names = set(computed_objects.split(", "))
+            current_objs = obj_names.difference(names)
+            names.update(current_objs)
             if computed_objects:
-                object_results.extend(compare_address_objects(computed_objects.split(", "), pano))
+                object_results.extend(compare_address_objects(current_objs, pano))
 
         if object_type == "service" or object_type == "all":
             computed_objects = computed_fields.get("service_objects")
+            obj_names = set(computed_objects.split(", "))
+            current_objs = obj_names.difference(names)
+            names.update(current_objs)
             if computed_objects:
-                object_results.extend(compare_service_objects(computed_objects.split(", "), pano))
+                object_results.extend(compare_service_objects(current_objs, pano))
 
     return dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
 

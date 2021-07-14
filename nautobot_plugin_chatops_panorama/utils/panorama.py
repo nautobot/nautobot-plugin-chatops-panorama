@@ -124,11 +124,7 @@ def get_devices(connection: Panorama) -> dict:
 
 def compare_address_objects(address_objects, connection):
     results = []
-    names = []
     for addr in address_objects:
-        if addr in names:
-            continue
-        names.append(addr)
         # Set initial values to be used in final results (row)
         loop_result = [addr, "address"]
 
@@ -160,11 +156,7 @@ def compare_address_objects(address_objects, connection):
 
 def compare_service_objects(service_objects, connection):
     results = []
-    names = []
     for svc in service_objects:
-        if svc in names:
-            continue
-        names.append(svc)
         # Set initial values to be used in final results (row)
         loop_result = [svc, "service"]
 

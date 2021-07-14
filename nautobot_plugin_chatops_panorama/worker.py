@@ -1,5 +1,6 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
 import logging
+import requests
 
 from django_rq import job
 from nautobot.dcim.models import Device
@@ -10,6 +11,7 @@ from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
+from panos.policies import Rulebase, SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -19,6 +21,7 @@ from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_interfaces,
     _get_or_create_management_ip,
 )
+
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
     get_devices,
@@ -193,3 +196,29 @@ def validate_objects(dispatcher, device, object_type, device_group):
             object_results.extend(compare_service_objects(computed_objects.split(", "), pano))
 
     return dispatcher.send_large_table(("Name", "Object Type", "Status"), object_results)
+
+
+@subcommand_of("panorama")
+def get_rules(dispatcher, device, **kwargs):
+    """Get list of firewall rules by name."""
+    logger.info("Pulling list of firewall rules by name.")
+    pano = connect_panorama()
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
+    device = Device.objects.get(id=device)
+    api_key = get_api_key_api()
+    params = {
+        "key": "LUFRPT1CMVFHYzlESUxaUDY0L2dPMFBHenkrNDZWNjg9dVNxWU5YRncxdkFkNVp6dFVCUy9jM0orMkVwSklmUTlLYlhER1BPV3c1K1lFaFlvNU5OTlZlaXQ4RHg1VkZKKw==",
+        "cmd": "<show><rule-hit-count><device-group><entry name='Demo'><pre-rulebase><entry name='security'><rules><all/></rules></entry></pre-rulebase></entry></device-group></rule-hit-count></show>",
+        "type": "op"
+    }
+    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    url = f"https://{host}/api/"
+    response = requests.get(url, params=params, verify=False)
+    if not response.ok:
+        dispatcher.send_markdown(f"Error retrieving device rules.")
+        return CommandStatusChoices.STATUS_FAILED
+    else:
+        dispatcher.send_markdown(response.text)
+        return CommandStatusChoices.STATUS_SUCCEEDED
+

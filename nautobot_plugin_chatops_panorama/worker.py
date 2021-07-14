@@ -208,7 +208,7 @@ def get_rules(dispatcher, device, **kwargs):
     device = Device.objects.get(id=device)
     api_key = get_api_key_api()
     params = {
-        "key": "LUFRPT1CMVFHYzlESUxaUDY0L2dPMFBHenkrNDZWNjg9dVNxWU5YRncxdkFkNVp6dFVCUy9jM0orMkVwSklmUTlLYlhER1BPV3c1K1lFaFlvNU5OTlZlaXQ4RHg1VkZKKw==",
+        "key": api_key,
         "cmd": "<show><rule-hit-count><device-group><entry name='Demo'><pre-rulebase><entry name='security'><rules><all/></rules></entry></pre-rulebase></entry></device-group></rule-hit-count></show>",
         "type": "op"
     }

@@ -27,7 +27,8 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_devices,
     compare_address_objects,
     compare_service_objects,
-    get_api_key_api
+    get_api_key_api,
+    get_rule_match,
 )
 
 
@@ -76,6 +77,20 @@ def panorama(subcommand, **kwargs):
     """Perform panorama and its subcommands."""
     return handle_subcommands("panorama", subcommand, **kwargs)
 
+@subcommand_of("panorama")
+def validate_rule_exists(dispatcher, device, src_ip):
+    """Verify that the rule exists within a device, via Panorama."""
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama validate-rule-exists")
+    action = f"panorama validate-rule-exists {device}" # Adding single quotes around city to preserve quotes.
+    if not src_ip:
+        return dispatcher.prompt_for_text(action_id=action, help_text="Please enter the Source IP.", label="SRC-IP")
+    pano = connect_panorama()
+    data = {"src_ip":"10.0.60.100", "dst_ip": "10.0.20.100", "protocol": "6", "dst_port": "636"}
+    rule_details = get_rule_match(connection=pano, five_tuple=data)
+
+    dispatcher.send_markdown(f"The version of Panorama is {rule_details}.")
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 @subcommand_of("panorama")
 def get_version(dispatcher):

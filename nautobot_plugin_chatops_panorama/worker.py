@@ -548,5 +548,5 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     )
 
     dispatcher.send_markdown("Here is the PCAP file that your requested!")
-    return dispatcher.send_image('1.pcap')
+    return dispatcher.send_image('captured.pcap')
 

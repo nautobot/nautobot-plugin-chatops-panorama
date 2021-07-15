@@ -165,7 +165,7 @@ def _get_pcap(ip:str):
 
     respone = requests.get(url, params=params, verify=False)
 
-    with open("capture.pcap", "wb") as pcap_file:
+    with open("captured.pcap", "wb") as pcap_file:
         pcap_file.write(respone.content)
 
 

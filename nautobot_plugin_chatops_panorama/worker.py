@@ -14,7 +14,7 @@ import ipaddr
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from panos.policies import Rulebase, SecurityRule
+from panos.policies import SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -127,13 +127,31 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
     if matching_rules:
-        rules = Rulebase()
+        all_rules = list()
         for rule in get_all_rules(device):
             if rule.name == matching_rules[0]["name"]:
-                rules.add(rule)
-        dispatcher.send_markdown(f"The version of Panorama is {split_rules(rules)}.")
+                rule_list = list()
+                rule_list.append(rule.name)
+                sources = ""
+                for src in rule.source:
+                    sources += src + ", "
+                rule_list.append(sources[:-2])
+                destination = ""
+                for dst in rule.destination:
+                    destination += dst + ", "
+                rule_list.append(destination[:-2])
+                service = ""
+                for svc in rule.service:
+                    service += svc + ", "
+                rule_list.append(service[:-2])
+                rule_list.append(rule.action)
+                all_rules.append(rule_list)
+        dispatcher.send_markdown(f"The Traffic is permitted via a rule named `{matching_rules[0]['name']}`:")
+        dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     else:
-        dispatcher.send_markdown(f"No matching rule found.")
+        dispatcher.send_markdown(f"`No matching rule` found for:")
+        all_values = [["Device", device], ["Source IP", src_ip],["Destination", dst_ip], ["Protocol", protocol], ["Destination Port", dst_port]]
+        dispatcher.send_large_table(("Object", "Value"), all_values)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -143,6 +161,13 @@ def get_version(dispatcher):
     pano = connect_panorama()
     dispatcher.send_markdown(f"The version of Panorama is {pano.refresh_system_info().version}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+# @subcommand_of("panorama")
+# def i_love_you(dispatcher, **kwargs):
+#     """When you want to tell Panorama how much you love it."""
+#     dispatcher.send_image("nautobot_plugin_chatops_panorama/img/han-solo-i-know.jpg")
+#     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 @subcommand_of("panorama")
@@ -345,7 +370,6 @@ def get_device_rules(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
@@ -448,7 +472,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             "default": "15",
         },
     ]
-    
+
     if not all([snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
         dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Test", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
@@ -491,19 +515,23 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
         dispatcher.send_markdown(f"Capture Seconds must be specified as a number in the range 1-120")
         return CommandStatusChoices.STATUS_FAILED
 
+    # ---------------------------------------------------
+    # Start Packet Capture on Device
+    # ---------------------------------------------------
     device_ip = Device.object.get(id=device_id).custom_fields["public_ipv4"]
-
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
-    start_packet_capture(device_ip, {
-        "snet": snet.split("/")[0],
-        "scidr": snet.split("/")[1],
-        "dnet":  dnet.split("/")[0],
-        "dcidr": dnet.split("/")[1],
-        "dport": dport,
-        "intf_name": intf_name,
-        "ip_proto": ip_proto,
-        "stage": stage,
-        "capture_seconds": capture_seconds
+    start_packet_capture(
+        device_ip,
+        {
+            "snet": snet.split("/")[0],
+            "scidr": snet.split("/")[1],
+            "dnet":  dnet.split("/")[0],
+            "dcidr": dnet.split("/")[1],
+            "dport": dport,
+            "intf_name": intf_name,
+            "ip_proto": ip_proto,
+            "stage": stage,
+            "capture_seconds": capture_seconds
         }
     )
 

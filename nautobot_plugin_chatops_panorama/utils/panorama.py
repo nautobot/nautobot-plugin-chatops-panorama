@@ -280,6 +280,12 @@ def split_rules(rules, title=''):
         services = ""
         for svc in rule.service:
             services += svc + " "
+        tozone = ""
+        for tzone in rule.tozone:
+            tozone += tzone + " "
+        fromzone = ""
+        for fzone in rule.fromzone:
+            fromzone += fzone + " "
 
-        output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
+        output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{tozone[:-1]},{fromzone[:-1]}\n"
     return output

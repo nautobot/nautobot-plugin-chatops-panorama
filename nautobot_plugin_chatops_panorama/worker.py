@@ -14,6 +14,7 @@ import defusedxml.ElementTree as ET
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
+from panos.policies import Rulebase, SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -126,7 +127,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
     if matching_rules:
-        rules = panos.policies.Rulebase()
+        rules = Rulebase()
         for rule in get_all_rules(device):
             if rule.name == matching_rules["name"]:
                 rules.add(SecurityRule.add(rule))

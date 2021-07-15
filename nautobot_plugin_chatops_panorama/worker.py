@@ -500,15 +500,15 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
         dport = None
     else:
         try:
-            int(dport)
-            if not int(dport) >= 1 or not int(dport) <= 65535:
+            dport = int(dport)
+            if not dport >= 1 or not dport <= 65535:
                 raise ValueError
         except:
             dispatcher.send_markdown(f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535")
             return CommandStatusChoices.STATUS_FAILED
 
     try:
-        int(capture_seconds)
+        capture_seconds = int(capture_seconds)
         if capture_seconds > 120 or capture_seconds < 1:
             raise ValueError
     except ValueError:

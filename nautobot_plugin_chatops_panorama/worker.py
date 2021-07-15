@@ -450,7 +450,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # + source-netmask        Source netmask
     # + source-port           Source port
     # + lacp                  LACP packet # include LACP packets
-    if not all([snet, dnet, dport, intf_name, ip_proto]):
+    if not any([snet, dnet, dport, intf_name, ip_proto]):
         dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 

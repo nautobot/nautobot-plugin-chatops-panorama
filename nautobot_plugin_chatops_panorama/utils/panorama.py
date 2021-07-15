@@ -132,13 +132,13 @@ def start_packet_capture(ip: str, filters: dict):
     if filters["dport"]:
         command += f" destination-port {filters['dport']}"
 
-    if filters['dnet']:
+    if filters['dnet'] != "0.0.0.0":
         command += f" destination {filters['dnet']}"
 
     if filters['dcidr'] != "0":
         command += f" destination-netmask {filters['dcidr']}"
 
-    if filters['snet']:
+    if filters['snet'] != "0.0.0.0":
         command += f" source {filters['snet']}"
 
     if filters['scidr'] != "0":

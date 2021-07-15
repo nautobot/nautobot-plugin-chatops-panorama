@@ -74,7 +74,6 @@ def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
         "key": get_api_key_api(),
         "cmd": cmd,
         "type": "op",
-        # TODO: no hard coding
         "target": serial,
     }
 
@@ -283,3 +282,4 @@ def split_rules(rules, title=''):
             services += svc + " "
 
         output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
+    return output

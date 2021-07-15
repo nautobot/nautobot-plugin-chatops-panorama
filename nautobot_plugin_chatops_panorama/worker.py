@@ -318,3 +318,69 @@ def get_device_rules(dispatcher, device, **kwargs):
 
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def export_device_rules(dispatcher, device, **kwargs):
+    """Get list of firewall rules with details."""
+    pano = connect_panorama()
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
+    # device = Device.objects.get(id=device)
+    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    device = pano.add(devices[0])
+    rulebase = device.add(Rulebase())
+    rules = SecurityRule.refreshall(rulebase)
+
+    output = "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
+    for rule in rules:
+        sources = ""
+        for src in rule.source:
+            sources += src + " "
+        destinations = ""
+        for dst in rule.destination:
+            destinations += dst + " "
+        services = ""
+        for svc in rule.service:
+            services += svc + " "
+
+        output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
+
+    # dispatcher.snippet(output)
+    dispatcher.send_snippet(output)
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def export_device_rules_csv(dispatcher, device, **kwargs):
+    """Get list of firewall rules with details."""
+    pano = connect_panorama()
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
+    # device = Device.objects.get(id=device)
+    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    device = pano.add(devices[0])
+    rulebase = device.add(Rulebase())
+    rules = SecurityRule.refreshall(rulebase)
+
+    file_name = "device_rules.csv"
+    with open(file_name, "w") as f:
+        f.write("Name,Source,Destination,Service,Action,To Zone,From Zone\n")
+        for rule in rules:
+            sources = ""
+            for src in rule.source:
+                sources += src + " "
+            destinations = ""
+            for dst in rule.destination:
+                destinations += dst + " "
+            services = ""
+            for svc in rule.service:
+                services += svc + " "
+
+            f.write(f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n")
+
+    # dispatcher.snippet(output)
+    dispatcher.send_image(file_name)
+    return CommandStatusChoices.STATUS_SUCCEEDED

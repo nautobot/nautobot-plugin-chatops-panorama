@@ -127,11 +127,16 @@ def start_packet_capture(ip: str, filters: dict):
         'password': PLUGIN_CFG["panorama_password"]
     }
 
+    command=f"debug dataplane packet-diag set filter index 1 destination {filters['dnet']} destination-netmask {filters['dcidr']} ingress-interface {filters['intf_name']} protocol {filters['ip_proto']} source {filters['snet']} source-netmask {filters['scidr']}"
+
+    if filters["dport"]:
+        command+=f" destination-port {filters['dport']}"
+
     ssh = ConnectHandler(**dev_connect)
     ssh.send_command("debug dataplane packet-diag clear all")
     ssh.send_command("delete debug-filter file python.pcap")
 
-    ssh.send_command(f"debug dataplane packet-diag set filter index 1 destination {filters['dnet']} destination-netmask {filters['dcidr']} destination-port {filters['dport']} ingress-interface {filters['intf_name']} protocol {filters['ip_proto']} source {filters['snet']} source-netmask {filters['scidr']}")
+    ssh.send_command(command)
     ssh.send_command("debug dataplane packet-diag set filter on")
     ssh.send_command(f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap")
     ssh.send_command("debug dataplane packet-diag set capture on")

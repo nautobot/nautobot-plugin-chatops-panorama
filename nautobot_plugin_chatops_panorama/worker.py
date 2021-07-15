@@ -162,6 +162,13 @@ def get_version(dispatcher):
 
 
 @subcommand_of("panorama")
+def i_love_you(dispatcher, **kwargs):
+    """When you want to tell Panorama how much you love it."""
+    dispatcher.send_image("img/han-solo-i-know.jpg")
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
 def upload_software(dispatcher, device, version, **kwargs):
     """Upload software to specified Palo Alto device."""
     logger.info("DEVICE: %s", device)
@@ -359,7 +366,6 @@ def get_device_rules(dispatcher, device, **kwargs):
 
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED
-
 
 
 @subcommand_of("panorama")

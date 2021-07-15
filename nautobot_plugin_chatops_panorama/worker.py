@@ -439,7 +439,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
 
 
 @subcommand_of("panorama")
-def matt(dispatcher, device_id, snet, dnet, dport):
+def matt(dispatcher, device_id, snet, dnet, dport, **kwargs):
     """Capture IP traffic on PANOS Device
 
     Args:

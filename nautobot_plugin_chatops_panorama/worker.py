@@ -324,7 +324,7 @@ def get_device_rules(dispatcher, device, **kwargs):
 
 
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, filters):
+def capture_traffic(dispatcher, device_id, **kwargs):
     """Capture IP traffic on PANOS Device"""
     logger.info("Starting packet capturing.")
     _devices = Device.objects.all()
@@ -373,8 +373,9 @@ def capture_traffic(dispatcher, device_id, filters):
     # + source-netmask        Source netmask
     # + source-port           Source port
     # + lacp                  LACP packet # include LACP packets
-    if not filters:
+    if not kwargs:
         return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
 
-    return dispatcher.send_markdown(json.dumps(filters))
+    print(kwargs)
+    return dispatcher.send_markdown(json.dumps(kwargs))
 

@@ -14,7 +14,7 @@ import defusedxml.ElementTree as ET
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from panos.policies import Rulebase, SecurityRule
+from panos.policies import SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -127,11 +127,21 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
     if matching_rules:
-        rules = Rulebase()
+        output = "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
         for rule in get_all_rules(device):
             if rule.name == matching_rules[0]["name"]:
-                rules.add(rule)
-        dispatcher.send_markdown(f"The version of Panorama is {split_rules(rules)}.")
+                sources = ""
+                for src in rule.source:
+                    sources += src + " "
+                destinations = ""
+                for dst in rule.destination:
+                    destinations += dst + " "
+                services = ""
+                for svc in rule.service:
+                    services += svc + " "
+
+                output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
+        dispatcher.send_markdown(f"The matching rule is:\n ```{output}```")
     else:
         dispatcher.send_markdown(f"No matching rule found.")
     return CommandStatusChoices.STATUS_SUCCEEDED

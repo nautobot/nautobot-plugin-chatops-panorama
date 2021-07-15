@@ -428,14 +428,15 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             "type": "select",
             "label": "Interface Name",
             "choices": [(intf.name, intf.name) for intf in _interfaces],
-            "confirm": False
+            "confirm": False,
+            "default": ("Ethernet1/1", "ethernet1/1")
         },
         {
             "type": "select",
             "label": "IP Protocol",
             "choices": [("TCP", "6"), ("UDP", "17")],
             "confirm": False,
-            "default": "TCP"
+            "default": ("TCP", "6")
         }
     ]
     # + destination           Destination IP address

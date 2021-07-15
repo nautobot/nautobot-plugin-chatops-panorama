@@ -123,13 +123,16 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         return dispatcher.send_markdown(f"The device {device} was not found.")
 
     data = {"src_ip":src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
-    xml_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
+    matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
-    root = ET.fromstring(xml_rules)
-    if len(root.findall('.//entry')) == 0:
-        dispatcher.send_markdown(f"No matching rule found.")
+    if matching_rules:
+        rules = panos.policies.Rulebase()
+        for rule in get_all_rules(device):
+            if rule.name == matching_rules["name"]:
+                rules.add(SecurityRule.add(rule))
+        dispatcher.send_markdown(f"The version of Panorama is {split_rules(rules)}.")
     else:
-        dispatcher.send_markdown(f"The version of Panorama is {split_rules(xml_rules)}.")
+        dispatcher.send_markdown(f"No matching rule found.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

@@ -108,7 +108,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
             "default": "443",
         },
     ]
-    if not [device, src_ip, dst_ip, protocol, dst_port]:
+    if not all([device, src_ip, dst_ip, protocol, dst_port]):
         dispatcher.multi_input_dialog("panorama", "validate-rule-exists", "Verify if rule exists", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 

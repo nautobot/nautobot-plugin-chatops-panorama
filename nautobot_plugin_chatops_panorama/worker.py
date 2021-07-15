@@ -8,6 +8,8 @@ from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 import json
+import defusedxml.ElementTree as ET
+
 
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall

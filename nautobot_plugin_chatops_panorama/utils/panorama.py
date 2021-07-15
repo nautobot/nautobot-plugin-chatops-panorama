@@ -8,6 +8,7 @@ import defusedxml.ElementTree as ET
 import requests
 from netmiko import ConnectHandler
 import time
+from panos.policies import Rulebase, SecurityRule
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
     """Returns the API key.
@@ -252,3 +253,32 @@ def parse_all_rule_names(xml_rules: str) -> list:
         name = i.attrib.get("name")
         rule_names.append(name)
     return rule_names
+
+
+def get_all_rules(device=None):
+    pano = connect_panorama()
+    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    device = pano.add(devices[0])
+    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
+    # if not device:
+    #     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    #     device = pano.add(devices[0])
+    rulebase = device.add(Rulebase())
+    rules = SecurityRule.refreshall(rulebase)
+    return rules
+
+
+def split_rules(rules, title=''):
+    output = title or "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
+    for rule in rules:
+        sources = ""
+        for src in rule.source:
+            sources += src + " "
+        destinations = ""
+        for dst in rule.destination:
+            destinations += dst + " "
+        services = ""
+        for svc in rule.service:
+            services += svc + " "
+
+        output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"

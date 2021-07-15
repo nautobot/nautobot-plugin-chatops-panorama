@@ -12,7 +12,6 @@ import json
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from panos.policies import Rulebase, SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -31,7 +30,9 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_api_key_api,
     get_rule_match,
     parse_all_rule_names,
-    start_packet_capture
+    start_packet_capture,
+    get_all_rules,
+    split_rules
 )
 
 
@@ -310,15 +311,11 @@ def get_pano_rules(dispatcher, **kwargs):
 @subcommand_of("panorama")
 def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
-    pano = connect_panorama()
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
-    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
-    # device = Device.objects.get(id=device)
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
-    device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
+
+    rules = get_all_rules(device)
+
     all_rules = list()
     for rule in rules:
         rule_list = list()
@@ -342,9 +339,53 @@ def get_device_rules(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
+
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, **kwargs):
-    """Capture IP traffic on PANOS Device"""
+def export_device_rules(dispatcher, device, **kwargs):
+    """Get list of firewall rules with details."""
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+
+    rules = get_all_rules(device)
+
+    output = split_rules(rules)
+
+    # dispatcher.snippet(output)
+    dispatcher.send_snippet(output)
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def export_device_rules_csv(dispatcher, device, **kwargs):
+    """Get list of firewall rules with details."""
+    if not device:
+        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+
+    rules = get_all_rules(device)
+
+    file_name = "device_rules.csv"
+
+    output = split_rules(rules)
+    with open(file_name, "w") as f:
+        f.write(output)
+
+    # dispatcher.snippet(output)
+    dispatcher.send_image(file=file_name)
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
+    """Capture IP traffic on PANOS Device
+
+    Args:
+        device_id
+        snet
+        dnet
+        dport
+        intf_name
+        ip_proto
+    """
     logger.info("Starting packet capturing.")
     _devices = Device.objects.all()
 
@@ -372,13 +413,15 @@ def capture_traffic(dispatcher, device_id, **kwargs):
             "type": "select",
             "label": "Interface Name",
             "choices": [(intf.name, intf.name) for intf in _interfaces],
-            "confirm": False
+            "confirm": False,
+            "default": ("Ethernet1/1", "ethernet1/1")
         },
         {
             "type": "select",
             "label": "IP Protocol",
             "choices": [("TCP", "6"), ("UDP", "17")],
-            "confirm": False
+            "confirm": False,
+            "default": ("TCP", "6")
         }
     ]
     # + destination           Destination IP address
@@ -392,9 +435,8 @@ def capture_traffic(dispatcher, device_id, **kwargs):
     # + source-netmask        Source netmask
     # + source-port           Source port
     # + lacp                  LACP packet # include LACP packets
-    if not kwargs:
-        return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
+    if not any([snet, dnet, dport, intf_name, ip_proto]):
+        dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
+        return CommandStatusChoices.STATUS_SUCCEEDED
 
-    print(kwargs)
-    return dispatcher.send_markdown(json.dumps(kwargs))
-
+    return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])

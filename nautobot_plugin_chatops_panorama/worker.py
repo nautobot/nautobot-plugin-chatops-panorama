@@ -450,8 +450,9 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # + source-netmask        Source netmask
     # + source-port           Source port
     # + lacp                  LACP packet # include LACP packets
-    if not any([snet, dnet, dport, intf_name, ip_proto]):
-        dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
+    if not all([snet, dnet, dport, intf_name, ip_proto]):
+        dispatcher.multi_input_dialog("panorama", "capture-traffic", "Input Packet Capture Filters", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])
+    return dispatcher.send_markdown("WORKS")
+    # return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])

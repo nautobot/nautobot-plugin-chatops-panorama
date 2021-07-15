@@ -380,71 +380,71 @@ def export_device_rules_csv(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
+# @subcommand_of("panorama")
+# def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
+#     """Capture IP traffic on PANOS Device."""
+
+#     logger.info("Starting packet capturing.")
+#     _devices = Device.objects.all()
+
+#     if not device_id:
+#         return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
+
+#     return dispatcher.send_markdown(device_id)
+#     #_interfaces = Interface.objects.filter(device__id=device_id)
+#     dialog_list = [
+#         {
+#             "type": "text",
+#             "label": "Source Network",
+#             "default": "0.0.0.0/0",
+#         },
+#         {
+#             "type": "text",
+#             "label": "Destination Network",
+#             "default": "0.0.0.0/0",
+#         },
+#         {
+#             "type": "text",
+#             "label": "Destination Port",
+#             "default": "any",
+#         },
+#         {
+#             "type": "select",
+#             "label": "Interface Name",
+#             "choices": [(intf.name, intf.name) for intf in _interfaces],
+#             "confirm": False,
+#             # "default": ("Ethernet1/1", "ethernet1/1")
+#         },
+#         {
+#             "type": "select",
+#             "label": "IP Protocol",
+#             "choices": [("TCP", "6"), ("UDP", "17")],
+#             "confirm": False,
+#             # "default": ("TCP", "6")
+#         }
+#     ]
+#     # + destination           Destination IP address
+#     # + destination-netmask   Destination netmask
+#     # + destination-port      Destination port
+#     # + ingress-interface     Ingress traffic interface name
+#     # + ipv6-only             IPv6 packet only
+#     # + non-ip                Non-IP packet
+#     # + protocol              IP protocol value
+#     # + source                Source IP address
+#     # + source-netmask        Source netmask
+#     # + source-port           Source port
+#     # + lacp                  LACP packet # include LACP packets
+#     if not all([snet, dnet, dport, intf_name, ip_proto]):
+#         return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test", dialog_list)
+
+
+#     return dispatcher.send_markdown("WORKS")
+#     # return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])
+
+
+
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
-    """Capture IP traffic on PANOS Device."""
-
-    logger.info("Starting packet capturing.")
-    _devices = Device.objects.all()
-
-    if not device_id:
-        return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
-
-    return dispatcher.send_markdown(device_id)
-    #_interfaces = Interface.objects.filter(device__id=device_id)
-    dialog_list = [
-        {
-            "type": "text",
-            "label": "Source Network",
-            "default": "0.0.0.0/0",
-        },
-        {
-            "type": "text",
-            "label": "Destination Network",
-            "default": "0.0.0.0/0",
-        },
-        {
-            "type": "text",
-            "label": "Destination Port",
-            "default": "any",
-        },
-        {
-            "type": "select",
-            "label": "Interface Name",
-            "choices": [(intf.name, intf.name) for intf in _interfaces],
-            "confirm": False,
-            # "default": ("Ethernet1/1", "ethernet1/1")
-        },
-        {
-            "type": "select",
-            "label": "IP Protocol",
-            "choices": [("TCP", "6"), ("UDP", "17")],
-            "confirm": False,
-            # "default": ("TCP", "6")
-        }
-    ]
-    # + destination           Destination IP address
-    # + destination-netmask   Destination netmask
-    # + destination-port      Destination port
-    # + ingress-interface     Ingress traffic interface name
-    # + ipv6-only             IPv6 packet only
-    # + non-ip                Non-IP packet
-    # + protocol              IP protocol value
-    # + source                Source IP address
-    # + source-netmask        Source netmask
-    # + source-port           Source port
-    # + lacp                  LACP packet # include LACP packets
-    if not all([snet, dnet, dport, intf_name, ip_proto]):
-        return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test", dialog_list)
-
-
-    return dispatcher.send_markdown("WORKS")
-    # return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])
-
-
-
-@subcommand_of("panorama")
-def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs):
+def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs):
     """Capture IP traffic on PANOS Device
 
     Args:
@@ -459,12 +459,9 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
     _devices = Device.objects.all()
 
     if not device_id:
-        dispatcher.prompt_from_menu("panorama matt", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
+        dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    # output = f"{device_id}, {snet}, {dnet}, {dport}, {intf_name}, {ip_proto}"
-    # return dispatcher.send_markdown(output)
-    # _interfaces = Interface.objects.all()
     _interfaces = Interface.objects.filter(device__id=device_id)
     dialog_list = [
         {
@@ -487,7 +484,6 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
             "label": "Interface Name",
             "choices": [(intf.name, intf.name) for intf in _interfaces],
             "confirm": False,
-            # "default": ("Ethernet1/1", "ethernet1/1")
         },
         {
             "type": "select",
@@ -509,14 +505,11 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
     # + source-port           Source port
     # + lacp                  LACP packet # include LACP packets
     if not all([snet, dnet, dport, intf_name, ip_proto]):
-        output = f"{device_id}, {snet}, {dnet}, {dport}, {intf_name}, {ip_proto}"
-        dispatcher.send_markdown(output)
-        dispatcher.multi_input_dialog("panorama", f"matt {device_id}", "Test", dialog_list)
+        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Test", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     rows = list()
     for intf in _interfaces:
         rows.append([device_id, snet, dnet, dport, intf.name, ip_proto])
     dispatcher.send_large_table(("Device ID", "Source", "Destination", "Port", "Interface", "Protocol"), rows)
-    # dispatcher.send_large_table(("Device ID", "Source", "Destination", "Port"), [[device_id, snet, dnet, dport]])
     return CommandStatusChoices.STATUS_SUCCEEDED

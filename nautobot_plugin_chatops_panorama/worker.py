@@ -130,7 +130,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         rules = Rulebase()
         for rule in get_all_rules(device):
             if rule.name == matching_rules[0]["name"]:
-                rules.add(SecurityRule.add(rule))
+                rules.add(rule)
         dispatcher.send_markdown(f"The version of Panorama is {split_rules(rules)}.")
     else:
         dispatcher.send_markdown(f"No matching rule found.")

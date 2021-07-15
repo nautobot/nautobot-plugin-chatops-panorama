@@ -379,7 +379,7 @@ def export_device_rules_csv(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
     """Capture IP traffic on PANOS Device."""
-
+    
     logger.info("Starting packet capturing.")
     _devices = Device.objects.all()
 
@@ -408,14 +408,14 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             "label": "Interface Name",
             "choices": [(intf.name, intf.name) for intf in _interfaces],
             "confirm": False,
-            "default": ("Ethernet1/1", "ethernet1/1")
+            # "default": ("Ethernet1/1", "ethernet1/1")
         },
         {
             "type": "select",
             "label": "IP Protocol",
             "choices": [("TCP", "6"), ("UDP", "17")],
             "confirm": False,
-            "default": ("TCP", "6")
+            # "default": ("TCP", "6")
         }
     ]
     # + destination           Destination IP address

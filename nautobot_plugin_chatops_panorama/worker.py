@@ -371,7 +371,8 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     _devices = Device.objects.all()
 
     if not device_id:
-        return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
+        dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
+        return CommandStatusChoices.STATUS_SUCCEEDED
 
     _interfaces = Interface.objects.filter(device__id=device_id)
     dialog_list = [
@@ -420,5 +421,6 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
         dispatcher.multi_input_dialog("panorama", "capture-traffic", "Input Packet Capture Filters", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    return dispatcher.send_markdown("WORKS")
+    dispatcher.send_markdown("WORKS")
+    return CommandStatusChoices.STATUS_SUCCEEDED
     # return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])

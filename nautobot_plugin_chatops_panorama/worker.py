@@ -162,6 +162,13 @@ def get_version(dispatcher):
 
 
 @subcommand_of("panorama")
+def i_love_you(dispatcher, **kwargs):
+    """When you want to tell Panorama how much you love it."""
+    dispatcher.send_image("img/han-solo-i-know.jpg")
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
 def upload_software(dispatcher, device, version, **kwargs):
     """Upload software to specified Palo Alto device."""
     logger.info("DEVICE: %s", device)
@@ -361,7 +368,6 @@ def get_device_rules(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
@@ -375,88 +381,6 @@ def export_device_rules(dispatcher, device, **kwargs):
     # dispatcher.snippet(output)
     dispatcher.send_snippet(output)
     return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
-def export_device_rules_csv(dispatcher, device, **kwargs):
-    """Get list of firewall rules with details."""
-    if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
-
-    rules = get_all_rules(device)
-
-    file_name = "device_rules.csv"
-
-    output = split_rules(rules)
-    with open(file_name, "w") as f:
-        f.write(output)
-
-    # dispatcher.snippet(output)
-    dispatcher.send_image(file=file_name)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-# @subcommand_of("panorama")
-# def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
-#     """Capture IP traffic on PANOS Device."""
-
-#     logger.info("Starting packet capturing.")
-#     _devices = Device.objects.all()
-
-#     if not device_id:
-#         return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
-
-#     return dispatcher.send_markdown(device_id)
-#     #_interfaces = Interface.objects.filter(device__id=device_id)
-#     dialog_list = [
-#         {
-#             "type": "text",
-#             "label": "Source Network",
-#             "default": "0.0.0.0/0",
-#         },
-#         {
-#             "type": "text",
-#             "label": "Destination Network",
-#             "default": "0.0.0.0/0",
-#         },
-#         {
-#             "type": "text",
-#             "label": "Destination Port",
-#             "default": "any",
-#         },
-#         {
-#             "type": "select",
-#             "label": "Interface Name",
-#             "choices": [(intf.name, intf.name) for intf in _interfaces],
-#             "confirm": False,
-#             # "default": ("Ethernet1/1", "ethernet1/1")
-#         },
-#         {
-#             "type": "select",
-#             "label": "IP Protocol",
-#             "choices": [("TCP", "6"), ("UDP", "17")],
-#             "confirm": False,
-#             # "default": ("TCP", "6")
-#         }
-#     ]
-#     # + destination           Destination IP address
-#     # + destination-netmask   Destination netmask
-#     # + destination-port      Destination port
-#     # + ingress-interface     Ingress traffic interface name
-#     # + ipv6-only             IPv6 packet only
-#     # + non-ip                Non-IP packet
-#     # + protocol              IP protocol value
-#     # + source                Source IP address
-#     # + source-netmask        Source netmask
-#     # + source-port           Source port
-#     # + lacp                  LACP packet # include LACP packets
-#     if not all([snet, dnet, dport, intf_name, ip_proto]):
-#         return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test", dialog_list)
-
-
-#     return dispatcher.send_markdown("WORKS")
-#     # return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])
-
 
 
 @subcommand_of("panorama")

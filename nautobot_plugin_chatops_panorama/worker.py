@@ -518,7 +518,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    device_ip = Device.objects.get(id=device_id).custom_fields["public_ipv4"]
+    device_ip = Device.objects.get(id=device_id).custom_field_data["public_ipv4"]
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
     start_packet_capture(
         device_ip,

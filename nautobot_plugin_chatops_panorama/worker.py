@@ -385,7 +385,7 @@ def export_device_rules_csv(dispatcher, device, **kwargs):
             f.write(f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n")
 
     # dispatcher.snippet(output)
-    dispatcher.send_image(file_name)
+    dispatcher.send_image(file=file_name)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

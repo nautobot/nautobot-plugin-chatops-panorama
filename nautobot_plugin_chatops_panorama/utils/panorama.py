@@ -150,7 +150,7 @@ def start_packet_capture(ip: str, filters: dict):
 def _get_pcap(ip:str):
     """Downloads PCAP file from PANOS device
 
-    Args:
+    Args:b
         ip (str): IP address of the device
     """
 

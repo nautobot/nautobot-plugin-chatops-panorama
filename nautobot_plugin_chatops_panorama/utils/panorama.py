@@ -73,7 +73,6 @@ def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
         "key": get_api_key_api(),
         "cmd": cmd,
         "type": "op",
-        # TODO: no hard coding
         "target": serial,
     }
 

@@ -282,3 +282,4 @@ def split_rules(rules, title=''):
             services += svc + " "
 
         output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
+    return output

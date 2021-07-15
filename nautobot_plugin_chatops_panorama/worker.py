@@ -127,7 +127,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     if len(root.findall('.//entry')) == 0:
         dispatcher.send_markdown(f"No matching rule found.")
     else:
-        dispatcher.send_markdown(f"The version of Panorama is {xml_rules}.")
+        dispatcher.send_markdown(f"The version of Panorama is {split_rules(xml_rules)}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

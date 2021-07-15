@@ -379,14 +379,15 @@ def export_device_rules_csv(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
     """Capture IP traffic on PANOS Device."""
-    
+
     logger.info("Starting packet capturing.")
     _devices = Device.objects.all()
 
     if not device_id:
         return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
 
-    _interfaces = Interface.objects.filter(device__id=device_id)
+    return dispatcher.send_markdown(device_id)
+    #_interfaces = Interface.objects.filter(device__id=device_id)
     dialog_list = [
         {
             "type": "text",

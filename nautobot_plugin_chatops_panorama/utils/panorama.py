@@ -111,12 +111,12 @@ def get_devices(connection: Panorama) -> dict:
     return _device_dict
 
 
-def start_packet_capture(ip: str, commands: dict):
+def start_packet_capture(ip: str, filters: dict):
     """Starts or stops packet capturing on the Managed FW.
 
     Args:
         ip (str): IP address of the device
-        commands (dict): Commands to pass to the device for packet capturing
+        filters (dict): Commands to pass to the device for packet capturing
 
     """
 
@@ -131,14 +131,14 @@ def start_packet_capture(ip: str, commands: dict):
     ssh.send_command("debug dataplane packet-diag clear all")
     ssh.send_command("delete debug-filter file python.pcap")
 
-    ssh.send_command("debug dataplane packet-diag set filter index 1 match ingress-interface ethernet1/2")
+    ssh.send_command(f"debug dataplane packet-diag set filter index 1 destination {filters['dnet']} destination-netmask {filters['dcidr']} destination-port {filters['dport']} ingress-interface {filters['intf_name']} protocol {filters['ip_proto']} source {filters['snet']} source-netmask {filters['scidr']}")
     ssh.send_command("debug dataplane packet-diag set filter on")
-    ssh.send_command("debug dataplane packet-diag set capture stage receive byte-count 1024 file python.pcap")
+    ssh.send_command(f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap")
     ssh.send_command("debug dataplane packet-diag set capture on")
-    time.sleep(60)
+    time.sleep(int(ilters['capture_seconds']))
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
-
+    ssh.disconnect()
     _get_pcap(ip)
 
 

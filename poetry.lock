@@ -785,6 +785,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "ipaddr"
+version = "2.2.0"
+description = "Google's IP address manipulation library"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "isort"
 version = "5.8.0"
 description = "A Python utility / library to sort Python imports."
@@ -1836,7 +1844,7 @@ nautobot = ["nautobot"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6"
-content-hash = "80854d8232e0c8568fe9e0baf7ad2e9eeb02015d061e1c4fa8e226494282b499"
+content-hash = "1e8dbcb3ce58a2540832bcfaf4d96503068073b2544ec9589ea2e614753dcf51"
 
 [metadata.files]
 amqp = [
@@ -2184,6 +2192,9 @@ invoke = [
     {file = "invoke-1.6.0-py2-none-any.whl", hash = "sha256:e6c9917a1e3e73e7ea91fdf82d5f151ccfe85bf30cc65cdb892444c02dbb5f74"},
     {file = "invoke-1.6.0-py3-none-any.whl", hash = "sha256:769e90caeb1bd07d484821732f931f1ad8916a38e3f3e618644687fc09cb6317"},
     {file = "invoke-1.6.0.tar.gz", hash = "sha256:374d1e2ecf78981da94bfaf95366216aaec27c2d6a7b7d5818d92da55aa258d3"},
+]
+ipaddr = [
+    {file = "ipaddr-2.2.0.tar.gz", hash = "sha256:4092dfe667588d16aa12b59acb7c8a4024e5dcb23a681cd0b0b602373eca88d6"},
 ]
 isort = [
     {file = "isort-5.8.0-py3-none-any.whl", hash = "sha256:2bb1680aad211e3c9944dbce1d4ba09a989f04e238296c87fe2139faa26d655d"},

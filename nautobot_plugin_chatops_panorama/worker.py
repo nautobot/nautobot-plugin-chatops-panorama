@@ -9,7 +9,7 @@ from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 import json
 import defusedxml.ElementTree as ET
-
+import ipaddr
 
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
@@ -380,71 +380,8 @@ def export_device_rules_csv(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-# @subcommand_of("panorama")
-# def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
-#     """Capture IP traffic on PANOS Device."""
-
-#     logger.info("Starting packet capturing.")
-#     _devices = Device.objects.all()
-
-#     if not device_id:
-#         return dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
-
-#     return dispatcher.send_markdown(device_id)
-#     #_interfaces = Interface.objects.filter(device__id=device_id)
-#     dialog_list = [
-#         {
-#             "type": "text",
-#             "label": "Source Network",
-#             "default": "0.0.0.0/0",
-#         },
-#         {
-#             "type": "text",
-#             "label": "Destination Network",
-#             "default": "0.0.0.0/0",
-#         },
-#         {
-#             "type": "text",
-#             "label": "Destination Port",
-#             "default": "any",
-#         },
-#         {
-#             "type": "select",
-#             "label": "Interface Name",
-#             "choices": [(intf.name, intf.name) for intf in _interfaces],
-#             "confirm": False,
-#             # "default": ("Ethernet1/1", "ethernet1/1")
-#         },
-#         {
-#             "type": "select",
-#             "label": "IP Protocol",
-#             "choices": [("TCP", "6"), ("UDP", "17")],
-#             "confirm": False,
-#             # "default": ("TCP", "6")
-#         }
-#     ]
-#     # + destination           Destination IP address
-#     # + destination-netmask   Destination netmask
-#     # + destination-port      Destination port
-#     # + ingress-interface     Ingress traffic interface name
-#     # + ipv6-only             IPv6 packet only
-#     # + non-ip                Non-IP packet
-#     # + protocol              IP protocol value
-#     # + source                Source IP address
-#     # + source-netmask        Source netmask
-#     # + source-port           Source port
-#     # + lacp                  LACP packet # include LACP packets
-#     if not all([snet, dnet, dport, intf_name, ip_proto]):
-#         return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test", dialog_list)
-
-
-#     return dispatcher.send_markdown("WORKS")
-#     # return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])
-
-
-
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs):
+def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds, **kwargs):
     """Capture IP traffic on PANOS Device
 
     Args:
@@ -458,10 +395,16 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     logger.info("Starting packet capturing.")
     _devices = Device.objects.all()
 
+    # ---------------------------------------------------
+    # Get device to execute against
+    # ---------------------------------------------------
     if not device_id:
         dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
         return CommandStatusChoices.STATUS_SUCCEEDED
 
+    # ---------------------------------------------------
+    # Get parameters used to filter packet capture
+    # ---------------------------------------------------
     _interfaces = Interface.objects.filter(device__id=device_id)
     dialog_list = [
         {
@@ -491,25 +434,79 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             "choices": [("TCP", "6"), ("UDP", "17")],
             "confirm": False,
             "default": ("TCP", "6")
-        }
+        },
+        {
+            "type": "select",
+            "label": "Capture Stage",
+            "choices": [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")],
+            "confirm": False,
+            "default": ("Receive", "receive")
+        },
+        {
+            "type": "text",
+            "label": "Capture Seconds",
+            "default": "15",
+        },
     ]
-    # + destination           Destination IP address
-    # + destination-netmask   Destination netmask
-    # + destination-port      Destination port
-    # + ingress-interface     Ingress traffic interface name
-    # + ipv6-only             IPv6 packet only
-    # + non-ip                Non-IP packet
-    # + protocol              IP protocol value
-    # + source                Source IP address
-    # + source-netmask        Source netmask
-    # + source-port           Source port
-    # + lacp                  LACP packet # include LACP packets
-    if not all([snet, dnet, dport, intf_name, ip_proto]):
+    
+    if not all([snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
         dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Test", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    rows = list()
-    for intf in _interfaces:
-        rows.append([device_id, snet, dnet, dport, intf.name, ip_proto])
-    dispatcher.send_large_table(("Device ID", "Source", "Destination", "Port", "Interface", "Protocol"), rows)
-    return CommandStatusChoices.STATUS_SUCCEEDED
+    # ---------------------------------------------------
+    # Validate dialog list
+    # ---------------------------------------------------
+    try:
+        ipaddr.IPv4Network(snet)
+        source_network = snet.split("/")[0]
+        source_cidr = snet.split("/")[1]
+    except:
+        dispatcher.send_markdown(f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation")
+        return CommandStatusChoices.STATUS_FAILED
+
+    try:
+        ipaddr.IPv4Network(dnet)
+        dest_network = dnet.split("/")[0]
+        dest_cidr = dnet.split("/")[1]
+    except:
+        dispatcher.send_markdown(f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation")
+        return CommandStatusChoices.STATUS_FAILED
+
+    if dport == "any":
+        dport = None
+    else:
+        try:
+            int(dport)
+            if not int(dport) >= 1 or not int(dport) <= 65535:
+                raise ValueError
+        except:
+            dispatcher.send_markdown(f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535")
+            return CommandStatusChoices.STATUS_FAILED
+
+    try:
+        int(capture_seconds)
+        if capture_seconds > 120 or capture_seconds < 1:
+            raise ValueError
+    except ValueError:
+        dispatcher.send_markdown(f"Capture Seconds must be specified as a number in the range 1-120")
+        return CommandStatusChoices.STATUS_FAILED
+
+    device_ip = Device.object.get(id=device_id).custom_fields["public_ipv4"]
+
+    dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
+    start_packet_capture(device_ip, {
+        "snet": snet.split("/")[0],
+        "scidr": snet.split("/")[1],
+        "dnet":  dnet.split("/")[0],
+        "dcidr": dnet.split("/")[1],
+        "dport": dport,
+        "intf_name": intf_name,
+        "ip_proto": ip_proto,
+        "stage": stage,
+        "capture_seconds": capture_seconds
+        }
+    )
+
+    dispatcher.send_markdown("Here is the PCAP file that your requested!")
+    return dispatcher.send_image('1.pcap')
+

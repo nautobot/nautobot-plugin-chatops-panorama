@@ -127,21 +127,27 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
     if matching_rules:
-        output = "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
+        all_rules = list()
         for rule in get_all_rules(device):
             if rule.name == matching_rules[0]["name"]:
+                rule_list = list()
+                rule_list.append(rule.name)
                 sources = ""
                 for src in rule.source:
-                    sources += src + " "
-                destinations = ""
+                    sources += src + ", "
+                rule_list.append(sources[:-2])
+                destination = ""
                 for dst in rule.destination:
-                    destinations += dst + " "
-                services = ""
+                    destination += dst + ", "
+                rule_list.append(destination[:-2])
+                service = ""
                 for svc in rule.service:
-                    services += svc + " "
+                    service += svc + ", "
+                rule_list.append(service[:-2])
+                rule_list.append(rule.action)
+                all_rules.append(rule_list)
 
-                output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
-        dispatcher.send_markdown(f"The matching rule is:\n ```{output}```")
+        dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     else:
         dispatcher.send_markdown(f"No matching rule found.")
     return CommandStatusChoices.STATUS_SUCCEEDED

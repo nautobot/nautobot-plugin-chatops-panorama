@@ -164,9 +164,9 @@ def get_version(dispatcher):
 
 
 @subcommand_of("panorama")
-def get_image(dispatcher, **kwargs):
-    """When you want to tell Panorama how much you love it."""
-    dispatcher.send_image("nautobot_plugin_chatops_panorama/img/image.jpg")
+def the_best(dispatcher, **kwargs):
+    """Who is the best?"""
+    dispatcher.send_image("/source/nautobot_plugin_chatops_panorama/img/image.png")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

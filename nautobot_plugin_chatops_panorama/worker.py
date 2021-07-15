@@ -161,13 +161,11 @@ def get_version(dispatcher):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-@subcommand_of("panorama")
-def i_love_you(dispatcher, **kwargs):
-    """When you want to tell Panorama how much you love it."""
-    from os import getcwd
-    dispatcher.send_markdown(getcwd())
-    # dispatcher.send_image("img/han-solo-i-know.jpg")
-    return CommandStatusChoices.STATUS_SUCCEEDED
+# @subcommand_of("panorama")
+# def i_love_you(dispatcher, **kwargs):
+#     """When you want to tell Panorama how much you love it."""
+#     dispatcher.send_image("nautobot_plugin_chatops_panorama/img/han-solo-i-know.jpg")
+#     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 @subcommand_of("panorama")

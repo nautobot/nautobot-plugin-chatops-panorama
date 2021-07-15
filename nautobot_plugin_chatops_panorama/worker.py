@@ -458,7 +458,7 @@ def matt(dispatcher, device_id, snet, dnet, dport):
         dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    _interfaces = Interface.objects.filter(device__id=device_id)
+    # _interfaces = Interface.objects.filter(device__id=device_id)
     dialog_list = [
         {
             "type": "text",

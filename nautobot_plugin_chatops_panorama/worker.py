@@ -541,20 +541,20 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     if not filters['dnet']:
         command += f" destination {filters['dnet']}"
 
-    if filters['dcidr'] == "0":
+    if filters['dcidr'] != "0":
         command += f" destination-netmask {filters['dcidr']}"
 
     if not filters['snet']:
         command += f" source {filters['snet']}"
 
-    if filters['scidr'] == "0":
+    if filters['scidr'] != "0":
         command += f" source-netmask {filters['scidr']}"
 
     if not filters['ip_proto']:
         command += f" protocol {filters['ip_proto']}"
 
     dispatcher.send_markdown(command)
-    
+
     device_ip = Device.objects.get(id=device_id).custom_field_data["public_ipv4"]
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
     start_packet_capture(

@@ -146,7 +146,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
                 rule_list.append(service[:-2])
                 rule_list.append(rule.action)
                 all_rules.append(rule_list)
-
+        dispatcher.send_markdown(f"The Matching rule was found named {matching_rules[0]['name']}:")
         dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     else:
         dispatcher.send_markdown(f"No matching rule found.")

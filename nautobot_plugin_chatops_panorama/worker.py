@@ -121,9 +121,13 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         return dispatcher.send_markdown(f"The device {device} was not found.")
 
     data = {"src_ip":src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
-    rule_details = get_rule_match(connection=pano, five_tuple=data, serial=serial)
+    xml_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
-    dispatcher.send_markdown(f"The version of Panorama is {rule_details}.")
+    root = ET.fromstring(xml_rules)
+    if len(root.findall('.//entry')) == 0:
+        dispatcher.send_markdown(f"No matching rule found.")
+    else:
+        dispatcher.send_markdown(f"The version of Panorama is {split_rules(xml_rules)}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -271,7 +275,22 @@ def get_pano_rules(dispatcher, **kwargs):
     api_key = get_api_key_api()
     params = {
         "key": api_key,
-        "cmd": "<show><rule-hit-count><device-group><entry name='Demo'><pre-rulebase><entry name='security'><rules><all/></rules></entry></pre-rulebase></entry></device-group></rule-hit-count></show>",
+        "cmd": """
+            <show>
+                <rule-hit-count>
+                    <device-group>
+                        <entry name="Demo">
+                            <pre-rulebase>
+                            <entry name="security">
+                                <rules>
+                                    <all/>
+                                </rules>
+                            </entry>
+                            </pre-rulebase>
+                        </entry>
+                    </device-group>
+                </rule-hit-count>
+            </show>""",
         "type": "op",
     }
     host = PLUGIN_CFG["panorama_host"].rstrip("/")

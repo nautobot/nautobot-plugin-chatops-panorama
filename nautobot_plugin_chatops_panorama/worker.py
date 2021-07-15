@@ -296,13 +296,13 @@ def get_pano_rules(dispatcher, **kwargs):
                 <rule-hit-count>
                     <device-group>
                         <entry name="Demo">
-                            <pre->
+                            <pre-rulebase>
                             <entry name="security">
                                 <rules>
                                     <all/>
                                 </rules>
                             </entry>
-                            </pre->
+                            </pre-rulebase>
                         </entry>
                     </device-group>
                 </rule-hit-count>

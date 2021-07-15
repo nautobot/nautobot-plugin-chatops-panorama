@@ -474,7 +474,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     ]
 
     if not all([snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
-        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Test", dialog_list)
+        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Capture Filter Parameters", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     # ---------------------------------------------------

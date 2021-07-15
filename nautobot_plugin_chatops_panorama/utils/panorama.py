@@ -132,19 +132,19 @@ def start_packet_capture(ip: str, filters: dict):
     if filters["dport"]:
         command += f" destination-port {filters['dport']}"
 
-    if not filters['dnet']:
+    if filters['dnet']:
         command += f" destination {filters['dnet']}"
 
     if filters['dcidr'] != "0":
         command += f" destination-netmask {filters['dcidr']}"
 
-    if not filters['snet']:
+    if filters['snet']:
         command += f" source {filters['snet']}"
 
     if filters['scidr'] != "0":
         command += f" source-netmask {filters['scidr']}"
 
-    if not filters['ip_proto']:
+    if filters['ip_proto']:
         command += f" protocol {filters['ip_proto']}"
 
     ssh = ConnectHandler(**dev_connect)

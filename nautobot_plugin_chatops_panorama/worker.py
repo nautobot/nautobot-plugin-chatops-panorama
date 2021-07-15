@@ -509,7 +509,7 @@ def matt(dispatcher, device_id, snet, dnet, dport, **kwargs):
     # + source-port           Source port
     # + lacp                  LACP packet # include LACP packets
     if not all([snet, dnet, dport]):
-        dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test", dialog_list)
+        dispatcher.multi_input_dialog("panorama", "matt", "Test", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     # rows = list()

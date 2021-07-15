@@ -3,7 +3,7 @@ import logging
 import requests
 
 from django_rq import job
-from nautobot.dcim.models import Device
+from nautobot.dcim.models import Device, Interface
 from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
@@ -114,10 +114,11 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         dispatcher.multi_input_dialog("panorama", "validate-rule-exists", "Verify if rule exists", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    serial = get_devices().get(device, {}).get("serial")
+    pano = connect_panorama()
+    serial = get_devices(connection=pano).get(device, {}).get("serial")
     if not serial:
         return dispatcher.send_markdown(f"The device {device} was not found.")
-    pano = connect_panorama()
+
     data = {"src_ip":src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
     rule_details = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
@@ -288,11 +289,11 @@ def get_pano_rules(dispatcher, **kwargs):
 
 
 @subcommand_of("panorama")
-def get_device_rules(dispatcher, device **kwargs):
+def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     pano = connect_panorama()
     if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
+        return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
     # device = Device.objects.get(id=device)
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)

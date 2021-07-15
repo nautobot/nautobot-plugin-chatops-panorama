@@ -324,8 +324,17 @@ def get_device_rules(dispatcher, device, **kwargs):
 
 
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, **kwargs):
-    """Capture IP traffic on PANOS Device"""
+def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
+    """Capture IP traffic on PANOS Device
+
+    Args:
+        device_id
+        snet
+        dnet
+        dport
+        intf_name
+        ip_proto
+    """
     logger.info("Starting packet capturing.")
     _devices = Device.objects.all()
 
@@ -376,6 +385,4 @@ def capture_traffic(dispatcher, device_id, **kwargs):
     if not kwargs:
         return dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test title box", dialog_list)
 
-    print(kwargs)
-    return dispatcher.send_markdown(json.dumps(kwargs))
-
+    return dispatcher.send_large_table(("Device ID", "Source", "Destination", "Interface", "Protocol"), [[device_id, snet, dnet, dport, intf_name, ip_proto]])

@@ -507,7 +507,7 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
     if not all([snet, dnet, dport, intf_name, ip_proto]):
         output = f"{device_id}, {snet}, {dnet}, {dport}, {intf_name}, {ip_proto}"
         dispatcher.send_markdown(output)
-        dispatcher.multi_input_dialog("panorama", "matt", "Test", dialog_list)
+        dispatcher.multi_input_dialog("panorama", f"matt {device_id}", "Test", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     rows = list()

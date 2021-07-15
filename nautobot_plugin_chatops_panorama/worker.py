@@ -444,7 +444,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
 
 
 @subcommand_of("panorama")
-def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs):
+def matt(dispatcher, device_id, snet, dnet, dport, **kwargs):
     """Capture IP traffic on PANOS Device
 
     Args:
@@ -462,10 +462,10 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
         dispatcher.prompt_from_menu("panorama matt", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    output = f"{device_id}, {snet}, {dnet}, {dport}, {intf_name}, {ip_proto}"
-    return dispatcher.send_markdown(output)
-    _interfaces = Interface.objects.filter(device__id=device_id)
+    # output = f"{device_id}, {snet}, {dnet}, {dport}, {intf_name}, {ip_proto}"
+    # return dispatcher.send_markdown(output)
     # _interfaces = Interface.objects.all()
+    # _interfaces = Interface.objects.filter(device__id=device_id)
     dialog_list = [
         {
             "type": "text",
@@ -482,20 +482,20 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
             "label": "Destination Port",
             "default": "any",
         },
-        {
-            "type": "select",
-            "label": "Interface Name",
-            "choices": [(intf.name, intf.name) for intf in _interfaces],
-            "confirm": False,
-            "default": ("Ethernet1/1", "ethernet1/1")
-        },
-        {
-            "type": "select",
-            "label": "IP Protocol",
-            "choices": [("TCP", "6"), ("UDP", "17")],
-            "confirm": False,
-            "default": ("TCP", "6")
-        }
+        # {
+        #     "type": "select",
+        #     "label": "Interface Name",
+        #     "choices": [(intf.name, intf.name) for intf in _interfaces],
+        #     "confirm": False,
+        #     "default": ("Ethernet1/1", "ethernet1/1")
+        # },
+        # {
+        #     "type": "select",
+        #     "label": "IP Protocol",
+        #     "choices": [("TCP", "6"), ("UDP", "17")],
+        #     "confirm": False,
+        #     "default": ("TCP", "6")
+        # }
     ]
     # + destination           Destination IP address
     # + destination-netmask   Destination netmask
@@ -512,8 +512,9 @@ def matt(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, **kwargs
         dispatcher.multi_input_dialog("panorama", "capture-traffic", "Test", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
-    rows = list()
-    for intf in _interfaces:
-        rows.append([device_id, snet, dnet, dport, intf.name, ip_proto])
-    dispatcher.send_large_table(("Device ID", "Source", "Destination", "Port", "Interface", "Protocol"), rows)
+    # rows = list()
+    # for intf in _interfaces:
+    #     rows.append([device_id, snet, dnet, dport, intf.name, ip_proto])
+    # dispatcher.send_large_table(("Device ID", "Source", "Destination", "Port", "Interface", "Protocol"), rows)
+    dispatcher.send_large_table(("Device ID", "Source", "Destination", "Port"), [[device_id, snet, dnet, dport]])
     return CommandStatusChoices.STATUS_SUCCEEDED

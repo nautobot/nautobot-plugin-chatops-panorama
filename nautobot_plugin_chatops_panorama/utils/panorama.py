@@ -140,7 +140,7 @@ def start_packet_capture(ip: str, filters: dict):
     ssh.send_command("debug dataplane packet-diag set filter on")
     ssh.send_command(f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap")
     ssh.send_command("debug dataplane packet-diag set capture on")
-    time.sleep(int(ilters['capture_seconds']))
+    time.sleep(int(filters['capture_seconds']))
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
     ssh.disconnect()

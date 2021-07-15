@@ -518,8 +518,20 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
+    filters = {
+        "snet": snet.split("/")[0],
+        "scidr": snet.split("/")[1],
+        "dnet":  dnet.split("/")[0],
+        "dcidr": dnet.split("/")[1],
+        "dport": dport,
+        "intf_name": intf_name,
+        "ip_proto": ip_proto,
+        "stage": stage,
+        "capture_seconds": capture_seconds
+    }
     device_ip = Device.objects.get(id=device_id).custom_field_data["public_ipv4"]
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
+    dispatcher.send_markdown(f"debug dataplane packet-diag set filter index 1 destination {filters['dnet']} destination-netmask {filters['dcidr']} ingress-interface {filters['intf_name']} protocol {filters['ip_proto']} source {filters['snet']} source-netmask {filters['scidr']}")
     start_packet_capture(
         device_ip,
         {

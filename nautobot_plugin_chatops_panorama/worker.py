@@ -388,6 +388,8 @@ def export_device_rules_csv(dispatcher, device, **kwargs):
     dispatcher.send_image(file_name)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
+
+@subcommand_of("panorama")
 def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto):
     """Capture IP traffic on PANOS Device
 
@@ -432,7 +434,8 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             "type": "select",
             "label": "IP Protocol",
             "choices": [("TCP", "6"), ("UDP", "17")],
-            "confirm": False
+            "confirm": False,
+            "default": "TCP"
         }
     ]
     # + destination           Destination IP address

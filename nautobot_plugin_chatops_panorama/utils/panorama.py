@@ -6,7 +6,8 @@ from panos.errors import PanObjectMissing
 from requests.exceptions import RequestException
 import defusedxml.ElementTree as ET
 import requests
-
+from netmiko import ConnectHandler
+import time
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
     """Returns the API key.
@@ -120,6 +121,59 @@ def get_devices(connection: Panorama) -> dict:
             "os_version": device_system_info["sw-version"],
         }
     return _device_dict
+
+
+def start_packet_capture(ip: str, commands: dict):
+    """Starts or stops packet capturing on the Managed FW.
+
+    Args:
+        ip (str): IP address of the device
+        commands (dict): Commands to pass to the device for packet capturing
+
+    """
+
+    dev_connect = {
+        'device_type': 'paloalto_panos',
+        'host': ip,
+        'username': PLUGIN_CFG["panorama_user"],
+        'password': PLUGIN_CFG["panorama_password"]
+    }
+
+    ssh = ConnectHandler(**dev_connect)
+    ssh.send_command("debug dataplane packet-diag clear all")
+    ssh.send_command("delete debug-filter file python.pcap")
+
+    ssh.send_command("debug dataplane packet-diag set filter index 1 match ingress-interface ethernet1/2")
+    ssh.send_command("debug dataplane packet-diag set filter on")
+    ssh.send_command("debug dataplane packet-diag set capture stage receive byte-count 1024 file python.pcap")
+    ssh.send_command("debug dataplane packet-diag set capture on")
+    time.sleep(60)
+    ssh.send_command("debug dataplane packet-diag set capture off")
+    ssh.send_command("debug dataplane packet-diag set filter off")
+
+    _get_pcap(ip)
+
+
+def _get_pcap(ip:str):
+    """Downloads PCAP file from PANOS device
+
+    Args:
+        ip (str): IP address of the device
+    """
+
+    url = f"https://{ip}/api/"
+
+    params = {
+        "key": get_api_key_api(),
+        "type": "export",
+        "category": "filters-pcap",
+        "from": "1.pcap"
+    }
+
+    respone = requests.get(url, params=params, verify=False)
+
+    with open("capture.pcap", "wb") as pcap_file:
+        pcap_file.write(respone.content)
 
 
 def compare_address_objects(address_objects, connection):

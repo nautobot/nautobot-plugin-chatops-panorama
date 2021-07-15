@@ -12,7 +12,6 @@ import json
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from panos.policies import Rulebase, SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -31,7 +30,9 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_api_key_api,
     get_rule_match,
     parse_all_rule_names,
-    start_packet_capture
+    start_packet_capture,
+    get_all_rules,
+    split_rules
 )
 
 
@@ -291,15 +292,11 @@ def get_pano_rules(dispatcher, **kwargs):
 @subcommand_of("panorama")
 def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
-    pano = connect_panorama()
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
-    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
-    # device = Device.objects.get(id=device)
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
-    device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
+
+    rules = get_all_rules(device)
+
     all_rules = list()
     for rule in rules:
         rule_list = list()
@@ -323,32 +320,16 @@ def get_device_rules(dispatcher, device, **kwargs):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
+
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
-    pano = connect_panorama()
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
-    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
-    # device = Device.objects.get(id=device)
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
-    device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
 
-    output = "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
-    for rule in rules:
-        sources = ""
-        for src in rule.source:
-            sources += src + " "
-        destinations = ""
-        for dst in rule.destination:
-            destinations += dst + " "
-        services = ""
-        for svc in rule.service:
-            services += svc + " "
+    rules = get_all_rules(device)
 
-        output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n"
+    output = split_rules(rules)
 
     # dispatcher.snippet(output)
     dispatcher.send_snippet(output)
@@ -358,31 +339,16 @@ def export_device_rules(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def export_device_rules_csv(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
-    pano = connect_panorama()
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
-    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
-    # device = Device.objects.get(id=device)
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
-    device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
+
+    rules = get_all_rules(device)
 
     file_name = "device_rules.csv"
-    with open(file_name, "w") as f:
-        f.write("Name,Source,Destination,Service,Action,To Zone,From Zone\n")
-        for rule in rules:
-            sources = ""
-            for src in rule.source:
-                sources += src + " "
-            destinations = ""
-            for dst in rule.destination:
-                destinations += dst + " "
-            services = ""
-            for svc in rule.service:
-                services += svc + " "
 
-            f.write(f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{rule.tozone},{rule.fromzone}\n")
+    output = split_rules(rules)
+    with open(file_name, "w") as f:
+        f.write(output)
 
     # dispatcher.snippet(output)
     dispatcher.send_image(file=file_name)

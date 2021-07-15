@@ -1,6 +1,7 @@
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 from panos.panorama import Panorama
+from panos.firewall import Firewall
 from panos.objects import AddressObject, ServiceObject
 from panos.errors import PanObjectMissing
 from requests.exceptions import RequestException
@@ -61,25 +62,12 @@ def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
-    cmd = f"""
-        <test>
-            <security-policy-match>
-                <source>{five_tuple["src_ip"]}</source>
-                <destination>{five_tuple["dst_ip"]}</destination>
-                <protocol>{five_tuple["protocol"]}</protocol>
-                <destination-port>{five_tuple["dst_port"]}</destination-port>
-            </security-policy-match>
-        </test>"""
-    params = {
-        "key": get_api_key_api(),
-        "cmd": cmd,
-        "type": "op",
-        "target": serial,
-    }
 
     host = PLUGIN_CFG['panorama_host'].rstrip("/")
-    url = f"https://{host}/api/"
-    return requests.get(url, params=params, verify=False).text
+    fw = Firewall(serial=serial)
+    pano = Panorama(host, api_key=get_api_key_api())
+    pano.add(fw)
+    return fw.test_security_policy_match(source=five_tuple["src_ip"], destination=five_tuple["dst_ip"], protocol=int(five_tuple["protocol"]), port=int(five_tuple["dst_port"]))
 
 
 

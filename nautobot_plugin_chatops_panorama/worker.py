@@ -151,7 +151,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     else:
         dispatcher.send_markdown(f"`No matching rule` found for:")
         all_values = [["Device", device], ["Source IP", src_ip],["Destination", dst_ip], ["Protocol", protocol], ["Destination Port", dst_port]]
-        dispatcher.send_large_table(("Object", "Value", "Destination", "Service", "Action"), all_values)
+        dispatcher.send_large_table(("Object", "Value"), all_values)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

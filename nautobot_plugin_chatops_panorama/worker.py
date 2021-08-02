@@ -164,13 +164,6 @@ def get_version(dispatcher):
 
 
 @subcommand_of("panorama")
-def the_best(dispatcher, **kwargs):
-    """Who is the best?"""
-    dispatcher.send_image("/source/nautobot_plugin_chatops_panorama/img/image.png")
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
 def upload_software(dispatcher, device, version, **kwargs):
     """Upload software to specified Palo Alto device."""
     logger.info("DEVICE: %s", device)

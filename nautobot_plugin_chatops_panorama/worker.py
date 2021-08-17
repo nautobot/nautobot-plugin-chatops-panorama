@@ -18,7 +18,6 @@ from panos.policies import SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
-    _get_or_create_site,
     _get_or_create_device_type,
     _get_or_create_device,
     _get_or_create_interfaces,
@@ -229,7 +228,7 @@ def sync_firewalls(dispatcher):
         # logic to create device type based on model
         device_type = _get_or_create_device_type(data["model"])
         # logic to create device
-        device = _get_or_create_device(name, data["serial"], data["group_name"], device_type, data["os_version"])
+        device = _get_or_create_device(name, data["group_name"], device_type, serial=data["serial"], os_description=data["os_version"])
         # # logic to create interfaces
         interfaces = _get_or_create_interfaces(device)
         # # logic to assign ip_address to mgmt interface

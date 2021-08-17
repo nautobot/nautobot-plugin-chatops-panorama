@@ -17,3 +17,8 @@ INTERFACES = [
 UNKNOWN_SITE = "Unknown"
 
 ALLOWED_OBJECTS = ("all", "address", "service")
+
+NAPALM_DRIVER = "panos"
+PANOS_MANUFACTURER_NAME = "Palo Alto Networks"
+PANOS_PLATFORM = "PANOS"
+PANOS_DEVICE_ROLE = "Firewall"

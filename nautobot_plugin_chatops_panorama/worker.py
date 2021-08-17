@@ -226,19 +226,16 @@ def sync_firewalls(dispatcher):
     for name, data in devices.items():
         if not data["group_name"]:
             data["group_name"] = UNKNOWN_SITE
-        # logic to create site via group_name
-        site = _get_or_create_site(data["group_name"])
         # logic to create device type based on model
         device_type = _get_or_create_device_type(data["model"])
         # logic to create device
-        device = _get_or_create_device(name, data["serial"], site, device_type, data["os_version"])
-        # logic to create interfaces
+        device = _get_or_create_device(name, data["serial"], data["group_name"], device_type, data["os_version"])
+        # # logic to create interfaces
         interfaces = _get_or_create_interfaces(device)
-        # logic to assign ip_address to mgmt interface
-        mgmt_ip = _get_or_create_management_ip(device, interfaces[0], data["ip_address"])
-
+        # # logic to assign ip_address to mgmt interface
+        mgmt_ip = _get_or_create_management_ip(device, interfaces, data["ip_address"])
         # Add info for device creation to be sent to table creation at the end of task
-        status = (name, site, device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
+        status = (name, data["group_name"], device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
         device_status.append(status)
     dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)
     return CommandStatusChoices.STATUS_SUCCEEDED

@@ -11,6 +11,7 @@ from netmiko import ConnectHandler
 import time
 from panos.policies import Rulebase, SecurityRule
 
+
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
     """Returns the API key.
     Args:
@@ -63,12 +64,16 @@ def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
         dict: Dictionary of all devices attached to Panorama.
     """
 
-    host = PLUGIN_CFG['panorama_host'].rstrip("/")
+    host = PLUGIN_CFG["panorama_host"].rstrip("/")
     fw = Firewall(serial=serial)
     pano = Panorama(host, api_key=get_api_key_api())
     pano.add(fw)
-    return fw.test_security_policy_match(source=five_tuple["src_ip"], destination=five_tuple["dst_ip"], protocol=int(five_tuple["protocol"]), port=int(five_tuple["dst_port"]))
-
+    return fw.test_security_policy_match(
+        source=five_tuple["src_ip"],
+        destination=five_tuple["dst_ip"],
+        protocol=int(five_tuple["protocol"]),
+        port=int(five_tuple["dst_port"]),
+    )
 
 
 def get_devices(connection: Panorama) -> dict:
@@ -121,28 +126,28 @@ def start_packet_capture(ip: str, filters: dict):
     """
 
     dev_connect = {
-        'device_type': 'paloalto_panos',
-        'host': ip,
-        'username': PLUGIN_CFG["panorama_user"],
-        'password': PLUGIN_CFG["panorama_password"]
+        "device_type": "paloalto_panos",
+        "host": ip,
+        "username": PLUGIN_CFG["panorama_user"],
+        "password": PLUGIN_CFG["panorama_password"],
     }
 
-    command=f"debug dataplane packet-diag set filter index 1 match ingress-interface {filters['intf_name']}"
+    command = f"debug dataplane packet-diag set filter index 1 match ingress-interface {filters['intf_name']}"
 
     if filters["dport"]:
         command += f" destination-port {filters['dport']}"
 
-    if filters['dnet'] != "0.0.0.0":
+    if filters["dnet"] != "0.0.0.0":
         command += f" destination {filters['dnet']}"
-        if filters['dcidr'] != "0":
+        if filters["dcidr"] != "0":
             command += f" destination-netmask {filters['dcidr']}"
 
-    if filters['snet'] != "0.0.0.0":
+    if filters["snet"] != "0.0.0.0":
         command += f" source {filters['snet']}"
-        if filters['scidr'] != "0":
+        if filters["scidr"] != "0":
             command += f" source-netmask {filters['scidr']}"
 
-    if filters['ip_proto']:
+    if filters["ip_proto"]:
         command += f" protocol {filters['ip_proto']}"
 
     ssh = ConnectHandler(**dev_connect)
@@ -151,16 +156,18 @@ def start_packet_capture(ip: str, filters: dict):
 
     ssh.send_command(command)
     ssh.send_command("debug dataplane packet-diag set filter on")
-    ssh.send_command(f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap")
+    ssh.send_command(
+        f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap"
+    )
     ssh.send_command("debug dataplane packet-diag set capture on")
-    time.sleep(int(filters['capture_seconds']))
+    time.sleep(int(filters["capture_seconds"]))
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
     ssh.disconnect()
     _get_pcap(ip)
 
 
-def _get_pcap(ip:str):
+def _get_pcap(ip: str):
     """Downloads PCAP file from PANOS device
 
     Args:b
@@ -169,12 +176,7 @@ def _get_pcap(ip:str):
 
     url = f"https://{ip}/api/"
 
-    params = {
-        "key": get_api_key_api(),
-        "type": "export",
-        "category": "filters-pcap",
-        "from": "1.pcap"
-    }
+    params = {"key": get_api_key_api(), "type": "export", "category": "filters-pcap", "from": "1.pcap"}
 
     respone = requests.get(url, params=params, verify=False)
 
@@ -251,11 +253,12 @@ def compare_service_objects(service_objects, connection):
 
     return results
 
+
 def parse_all_rule_names(xml_rules: str) -> list:
     rule_names = []
     root = ET.fromstring(xml_rules)
     # Get names of rules
-    for i in root.findall('.//entry'):
+    for i in root.findall(".//entry"):
         name = i.attrib.get("name")
         rule_names.append(name)
     return rule_names
@@ -274,7 +277,7 @@ def get_all_rules(device=None):
     return rules
 
 
-def split_rules(rules, title=''):
+def split_rules(rules, title=""):
     output = title or "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
     for rule in rules:
         sources = ""

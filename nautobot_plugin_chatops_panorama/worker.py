@@ -1,4 +1,5 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
+import ipaddr
 import logging
 import requests
 
@@ -7,14 +8,10 @@ from nautobot.dcim.models import Device, Interface
 from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
-import json
-import defusedxml.ElementTree as ET
-import ipaddr
 
 from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-from panos.policies import SecurityRule
 
 from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
@@ -34,7 +31,7 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     parse_all_rule_names,
     start_packet_capture,
     get_all_rules,
-    split_rules
+    split_rules,
 )
 
 
@@ -122,7 +119,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     if not serial:
         return dispatcher.send_markdown(f"The device {device} was not found.")
 
-    data = {"src_ip":src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
+    data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
     matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
 
     if matching_rules:
@@ -148,8 +145,14 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         dispatcher.send_markdown(f"The Traffic is permitted via a rule named `{matching_rules[0]['name']}`:")
         dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     else:
-        dispatcher.send_markdown(f"`No matching rule` found for:")
-        all_values = [["Device", device], ["Source IP", src_ip],["Destination", dst_ip], ["Protocol", protocol], ["Destination Port", dst_port]]
+        dispatcher.send_markdown("`No matching rule` found for:")
+        all_values = [
+            ["Device", device],
+            ["Source IP", src_ip],
+            ["Destination", dst_ip],
+            ["Protocol", protocol],
+            ["Destination Port", dst_port],
+        ]
         dispatcher.send_large_table(("Object", "Value"), all_values)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -228,7 +231,9 @@ def sync_firewalls(dispatcher):
         # logic to create device type based on model
         device_type = _get_or_create_device_type(data["model"])
         # logic to create device
-        device = _get_or_create_device(name, data["group_name"], device_type, serial=data["serial"], os_description=data["os_version"])
+        device = _get_or_create_device(
+            name, data["group_name"], device_type, serial=data["serial"], os_description=data["os_version"]
+        )
         # # logic to create interfaces
         interfaces = _get_or_create_interfaces(device)
         # # logic to assign ip_address to mgmt interface
@@ -288,7 +293,7 @@ def validate_objects(dispatcher, device, object_type, device_group):
 def get_pano_rules(dispatcher, **kwargs):
     """Get list of firewall rules by name."""
     logger.info("Pulling list of firewall rules by name.")
-    pano = connect_panorama()
+    # pano = connect_panorama()
     # if not device:
     #     return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
     # device = Device.objects.get(id=device)
@@ -317,7 +322,7 @@ def get_pano_rules(dispatcher, **kwargs):
     url = f"https://{host}/api/"
     response = requests.get(url, params=params, verify=False)
     if not response.ok:
-        dispatcher.send_markdown(f"Error retrieving device rules.")
+        dispatcher.send_markdown("Error retrieving device rules.")
         return CommandStatusChoices.STATUS_FAILED
 
     rule_names = parse_all_rule_names(response.text)
@@ -412,7 +417,9 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # Get device to execute against
     # ---------------------------------------------------
     if not device_id:
-        dispatcher.prompt_from_menu("panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices])
+        dispatcher.prompt_from_menu(
+            "panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices]
+        )
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     # ---------------------------------------------------
@@ -446,14 +453,14 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             "label": "IP Protocol",
             "choices": [("TCP", "6"), ("UDP", "17"), ("ANY", "any")],
             "confirm": False,
-            "default": ("TCP", "6")
+            "default": ("TCP", "6"),
         },
         {
             "type": "select",
             "label": "Capture Stage",
             "choices": [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")],
             "confirm": False,
-            "default": ("Receive", "receive")
+            "default": ("Receive", "receive"),
         },
         {
             "type": "text",
@@ -471,18 +478,18 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # ---------------------------------------------------
     try:
         ipaddr.IPv4Network(snet)
-        source_network = snet.split("/")[0]
-        source_cidr = snet.split("/")[1]
-    except:
-        dispatcher.send_markdown(f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation")
+    except Exception:
+        dispatcher.send_markdown(
+            f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation"
+        )
         return CommandStatusChoices.STATUS_FAILED
 
     try:
         ipaddr.IPv4Network(dnet)
-        dest_network = dnet.split("/")[0]
-        dest_cidr = dnet.split("/")[1]
-    except:
-        dispatcher.send_markdown(f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation")
+    except Exception:
+        dispatcher.send_markdown(
+            f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation"
+        )
         return CommandStatusChoices.STATUS_FAILED
 
     if dport == "any":
@@ -492,8 +499,10 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
             dport = int(dport)
             if not dport >= 1 or not dport <= 65535:
                 raise ValueError
-        except:
-            dispatcher.send_markdown(f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535")
+        except Exception:
+            dispatcher.send_markdown(
+                f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
+            )
             return CommandStatusChoices.STATUS_FAILED
 
     if ip_proto == "any":
@@ -504,7 +513,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
         if capture_seconds > 120 or capture_seconds < 1:
             raise ValueError
     except ValueError:
-        dispatcher.send_markdown(f"Capture Seconds must be specified as a number in the range 1-120")
+        dispatcher.send_markdown("Capture Seconds must be specified as a number in the range 1-120")
         return CommandStatusChoices.STATUS_FAILED
 
     # ---------------------------------------------------
@@ -517,16 +526,15 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
         {
             "snet": snet.split("/")[0],
             "scidr": snet.split("/")[1],
-            "dnet":  dnet.split("/")[0],
+            "dnet": dnet.split("/")[0],
             "dcidr": dnet.split("/")[1],
             "dport": dport,
             "intf_name": intf_name,
             "ip_proto": ip_proto,
             "stage": stage,
-            "capture_seconds": capture_seconds
-        }
+            "capture_seconds": capture_seconds,
+        },
     )
 
     dispatcher.send_markdown("Here is the PCAP file that your requested!")
-    return dispatcher.send_image('captured.pcap')
-
+    return dispatcher.send_image("captured.pcap")

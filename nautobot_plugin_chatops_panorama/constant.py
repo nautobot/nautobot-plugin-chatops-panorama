@@ -11,7 +11,7 @@ INTERFACES = [
     "ethernet1/5",
     "ethernet1/6",
     "ethernet1/7",
-    "ethernet1/8"
+    "ethernet1/8",
 ]
 
 UNKNOWN_SITE = "Unknown"

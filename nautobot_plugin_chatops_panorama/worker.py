@@ -335,8 +335,8 @@ def export_device_rules(dispatcher, device, **kwargs):
     with open(file_name, "w") as f:
         f.write(output)
 
-    # dispatcher.snippet(output)
-    dispatcher.send_image(file=file_name)
+    dispatcher.send_image(file_name)
+
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

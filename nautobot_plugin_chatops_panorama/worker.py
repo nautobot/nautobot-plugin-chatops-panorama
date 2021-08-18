@@ -1,7 +1,7 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
 import ipaddr
 import logging
-import requests
+import os
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
@@ -13,7 +13,7 @@ from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
+from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_device_type,
     _get_or_create_device,
@@ -290,50 +290,6 @@ def validate_objects(dispatcher, device, object_type, device_group):
 
 
 @subcommand_of("panorama")
-def get_pano_rules(dispatcher, **kwargs):
-    """Get list of firewall rules by name."""
-    logger.info("Pulling list of firewall rules by name.")
-    # pano = connect_panorama()
-    # if not device:
-    #     return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
-    # device = Device.objects.get(id=device)
-    api_key = get_api_key_api()
-    params = {
-        "key": api_key,
-        "cmd": """
-            <show>
-                <rule-hit-count>
-                    <device-group>
-                        <entry name="Demo">
-                            <pre-rulebase>
-                            <entry name="security">
-                                <rules>
-                                    <all/>
-                                </rules>
-                            </entry>
-                            </pre-rulebase>
-                        </entry>
-                    </device-group>
-                </rule-hit-count>
-            </show>""",
-        "type": "op",
-    }
-    host = PLUGIN_CFG["panorama_host"].rstrip("/")
-    url = f"https://{host}/api/"
-    response = requests.get(url, params=params, verify=False)
-    if not response.ok:
-        dispatcher.send_markdown("Error retrieving device rules.")
-        return CommandStatusChoices.STATUS_FAILED
-
-    rule_names = parse_all_rule_names(response.text)
-    return_str = ""
-    for idx, name in enumerate(rule_names):
-        return_str += f"Rule {idx+1}\t\t{name}\n"
-    dispatcher.send_markdown(return_str)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
 def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     if not device:
@@ -369,21 +325,7 @@ def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
-
-    rules = get_all_rules(device)
-
-    output = split_rules(rules)
-
-    # dispatcher.snippet(output)
-    dispatcher.send_snippet(output)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
-def export_device_rules_csv(dispatcher, device, **kwargs):
-    """Get list of firewall rules with details."""
-    if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+    logger.debug("Running /panorama export-device-rules, device=%s" % device)
 
     rules = get_all_rules(device)
 

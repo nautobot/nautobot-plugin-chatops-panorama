@@ -364,6 +364,12 @@ def export_device_rules(dispatcher, device, **kwargs):
 
     dispatcher.send_image(file_name)
 
+    try:
+        os.remove(file_name)
+        logger.debug("Deleted generated CSV file %s" % file_name)
+    except FileNotFoundError:
+        logger.warning("Unable to delete generated CSV file %s" % file_name)
+
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

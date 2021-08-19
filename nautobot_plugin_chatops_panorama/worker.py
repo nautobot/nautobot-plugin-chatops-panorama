@@ -368,7 +368,7 @@ def export_device_rules(dispatcher, device, **kwargs):
 
 
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds, **kwargs):
+def capture_traffic(dispatcher, device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds, **kwargs):
     """Capture IP traffic on PANOS Device
 
     Args:
@@ -380,21 +380,18 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
         ip_proto
     """
     logger.info("Starting packet capturing.")
-    _devices = Device.objects.all()
 
     # ---------------------------------------------------
     # Get device to execute against
     # ---------------------------------------------------
-    if not device_id:
-        dispatcher.prompt_from_menu(
-            "panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices]
-        )
-        return CommandStatusChoices.STATUS_SUCCEEDED
+    pano = connect_panorama()
+    if not device:
+        return prompt_for_device(dispatcher, "panorama capture-traffic", pano)
 
     # ---------------------------------------------------
     # Get parameters used to filter packet capture
     # ---------------------------------------------------
-    _interfaces = Interface.objects.filter(device__id=device_id)
+    _interfaces = Interface.objects.filter(device__name=device)
     dialog_list = [
         {
             "type": "text",
@@ -439,40 +436,44 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     ]
 
     if not all([snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
-        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Capture Filter", dialog_list)
+        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device}", "Capture Filter", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
     try:
-        ipaddr.IPv4Network(snet)
-    except Exception:
+        ip_network(snet)
+    except ValueError:
         dispatcher.send_markdown(
             f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation"
         )
         return CommandStatusChoices.STATUS_FAILED
 
     try:
-        ipaddr.IPv4Network(dnet)
-    except Exception:
+        ip_network(dnet)
+    except ValueError:
         dispatcher.send_markdown(
             f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation"
         )
         return CommandStatusChoices.STATUS_FAILED
 
-    if dport == "any":
-        dport = None
-    else:
-        try:
-            dport = int(dport)
-            if not dport >= 1 or not dport <= 65535:
-                raise ValueError
-        except Exception:
-            dispatcher.send_markdown(
-                f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
-            )
-            return CommandStatusChoices.STATUS_FAILED
+    # if dport.lower() == "any":
+    #     dport = None
+    # else:
+    try:
+        dport = int(dport)
+        if not dport >= 1 or not dport <= 65535:
+            raise ValueError
+    except AttributeError:
+        # Port may be a string, which is still valid
+        if dport.lower() == "any":
+            dport = None
+    except (TypeError, ValueError):
+        dispatcher.send_markdown(
+            f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
+        )
+        return CommandStatusChoices.STATUS_FAILED
 
     if ip_proto == "any":
         ip_proto = None
@@ -488,7 +489,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    device_ip = Device.objects.get(id=device_id).custom_field_data["public_ipv4"]
+    device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
     start_packet_capture(
         device_ip,

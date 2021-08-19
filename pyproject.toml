@@ -29,6 +29,7 @@ defusedxml = "^0.7.1"
 requests = "^2.26.0"
 netmiko = "^3.4.0"
 ipaddr = "^2.2.0"
+netutils = "^0.2.1"
 
 [tool.poetry.dev-dependencies]
 bandit = "*"

@@ -1,7 +1,7 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
-import ipaddr
 import logging
 import os
+from ipaddress import ip_network
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
@@ -42,7 +42,7 @@ def prompt_for_panos_device_group(dispatcher, command, connection):
     """Prompt user for panos device group to check for groups from."""
     group_names = [device.name for device in connection.refresh_devices()]
     dispatcher.prompt_from_menu(command, "Select Panorama Device Group", [(grp, grp) for grp in group_names])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_object_type(dispatcher, command):
@@ -50,21 +50,21 @@ def prompt_for_object_type(dispatcher, command):
     dispatcher.prompt_from_menu(
         command, "Select an allowed object type", [(object_type, object_type) for object_type in ALLOWED_OBJECTS]
     )
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_nautobot_device(dispatcher, command):
     """Prompt user for firewall device within Nautobot."""
     _devices = Device.objects.all()
     dispatcher.prompt_from_menu(command, "Select a Nautobot Device", [(dev.name, str(dev.id)) for dev in _devices])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_device(dispatcher, command, conn):
     """Prompt the user to select a Palo Alto device."""
     _devices = get_devices(connection=conn)
     dispatcher.prompt_from_menu(command, "Select a Device", [(dev, dev) for dev in _devices])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_versions(dispatcher, command, conn):
@@ -72,7 +72,14 @@ def prompt_for_versions(dispatcher, command, conn):
     conn.software.check()
     versions = conn.software.versions
     dispatcher.prompt_from_menu(command, "Select a Version", [(ver, ver) for ver in versions])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+def is_valid_cidr(ip: str) -> str:
+    try:
+        return str(ip_network(str(ip)))
+    except ValueError:
+        return ""
 
 
 @job("default")
@@ -86,10 +93,6 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
     """Verify that the rule exists within a device, via Panorama."""
 
     dialog_list = [
-        {
-            "type": "text",
-            "label": "Device",
-        },
         {
             "type": "text",
             "label": "Source IP",
@@ -110,11 +113,36 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
             "default": "443",
         },
     ]
-    if not all([device, src_ip, dst_ip, protocol, dst_port]):
-        dispatcher.multi_input_dialog("panorama", "validate-rule-exists", "Verify if rule exists", dialog_list)
-        return CommandStatusChoices.STATUS_SUCCEEDED
 
     pano = connect_panorama()
+    if not device:
+        return prompt_for_device(dispatcher, "panorama validate-rule-exists", pano)
+
+    if not all([src_ip, dst_ip, protocol, dst_port]):
+        dispatcher.multi_input_dialog(
+            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+        )
+        return CommandStatusChoices.STATUS_SUCCEEDED
+
+    # Validate IP addresses are valid or 'any' is used.
+    # TODO: Add support for hostnames
+    if not is_valid_cidr(src_ip) and src_ip.lower() != "any":
+        dispatcher.send_markdown(
+            f"Source IP {src_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
+        )
+        dispatcher.multi_input_dialog(
+            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+        )
+        return CommandStatusChoices.STATUS_ERRORED
+    elif not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
+        dispatcher.send_markdown(
+            f"Destination IP {dst_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
+        )
+        dispatcher.multi_input_dialog(
+            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+        )
+        return CommandStatusChoices.STATUS_ERRORED
+
     serial = get_devices(connection=pano).get(device, {}).get("serial")
     if not serial:
         return dispatcher.send_markdown(f"The device {device} was not found.")
@@ -175,8 +203,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         return prompt_for_device(dispatcher, "panorama upload-software", pano)
 
     if not version:
-        prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
-        return CommandStatusChoices.STATUS_FAILED
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.")
@@ -187,7 +214,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         _firewall.software.download(version)
     except PanDeviceError as err:
         dispatcher.send_markdown(f"There was an issue uploading {version} to {device}. {err}")
-        return CommandStatusChoices.STATUS_FAILED
+        return CommandStatusChoices.STATUS_SUCCEEDED
     dispatcher.send_markdown(f"As requested, {version} is being uploaded to {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 

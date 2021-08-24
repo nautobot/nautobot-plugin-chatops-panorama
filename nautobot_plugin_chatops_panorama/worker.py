@@ -74,6 +74,7 @@ def prompt_for_versions(dispatcher, command, conn):
 
 
 def is_valid_cidr(ip: str) -> str:
+    """Checks if string is a valid IPv4 CIDR."""
     try:
         return str(ip_network(str(ip)))
     except ValueError:
@@ -89,7 +90,6 @@ def panorama(subcommand, **kwargs):
 @subcommand_of("panorama")
 def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port):
     """Verify that the rule exists within a device, via Panorama."""
-
     dialog_list = [
         {
             "type": "text",
@@ -372,16 +372,31 @@ def export_device_rules(dispatcher, device, **kwargs):
 
 
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds, **kwargs):
-    """Capture IP traffic on PANOS Device
+def capture_traffic(
+    dispatcher: object,
+    device: str,
+    snet: str,
+    dnet: str,
+    dport: str,
+    intf_name: str,
+    ip_proto: str,
+    stage: str,
+    capture_seconds: str,
+    **kwargs,
+):
+    """Capture IP traffic on PANOS Device.
 
     Args:
-        device_id
-        snet
-        dnet
-        dport
-        intf_name
-        ip_proto
+        dispatcher (object): Chatops plugin dispatcher object
+        device (str): Device name
+        snet (str): Source IP/network in IPv4 CIDR notation
+        dnet (str): Destination IP/network in IPv4 CIDR notation
+        dport (str): Destination port
+        intf_name (str): Interface name
+        ip_proto (str): Protocol for destination port
+        stage (str): Stage to use
+        capture_seconds (str): Number of seconds to run packet capture
+
     """
     logger.info("Starting packet capturing.")
 

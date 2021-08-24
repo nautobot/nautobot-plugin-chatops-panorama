@@ -1,3 +1,4 @@
+"""Functions used for interacting with Panroama."""
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 from panos.panorama import Panorama
@@ -14,8 +15,10 @@ from panos.policies import Rulebase, SecurityRule
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
     """Returns the API key.
+
     Args:
         url (str): URL of the device
+
     Returns:
         The API key.
     """
@@ -23,7 +26,7 @@ def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
 
     params = {"type": "keygen", "user": PLUGIN_CFG["panorama_user"], "password": PLUGIN_CFG["panorama_password"]}
 
-    response = requests.get(f"https://{url}/api/", params=params, verify=False)
+    response = requests.get(f"https://{url}/api/", params=params, verify=False)  # nosec
     if response.status_code != 200:
         raise RequestException(f"Something went wrong while making a request. Reason: {response.text}")
 
@@ -58,12 +61,13 @@ def _get_group(groups, serial):
 
 def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
     """Method to obtain the devices connected to Panorama.
+
     Args:
         connection (Panorama): Connection object to Panorama.
+
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
-
     host = PLUGIN_CFG["panorama_host"].rstrip("/")
     fw = Firewall(serial=serial)
     pano = Panorama(host, api_key=get_api_key_api())
@@ -122,9 +126,7 @@ def start_packet_capture(ip: str, filters: dict):
     Args:
         ip (str): IP address of the device
         filters (dict): Commands to pass to the device for packet capturing
-
     """
-
     dev_connect = {
         "device_type": "paloalto_panos",
         "host": ip,
@@ -137,12 +139,12 @@ def start_packet_capture(ip: str, filters: dict):
     if filters["dport"]:
         command += f" destination-port {filters['dport']}"
 
-    if filters["dnet"] != "0.0.0.0":
+    if filters["dnet"] != "0.0.0.0":  # nosec
         command += f" destination {filters['dnet']}"
         if filters["dcidr"] != "0":
             command += f" destination-netmask {filters['dcidr']}"
 
-    if filters["snet"] != "0.0.0.0":
+    if filters["snet"] != "0.0.0.0":  # nosec
         command += f" source {filters['snet']}"
         if filters["scidr"] != "0":
             command += f" source-netmask {filters['scidr']}"
@@ -168,23 +170,23 @@ def start_packet_capture(ip: str, filters: dict):
 
 
 def _get_pcap(ip: str):
-    """Downloads PCAP file from PANOS device
+    """Downloads PCAP file from PANOS device.
 
-    Args:b
+    Args:
         ip (str): IP address of the device
     """
-
     url = f"https://{ip}/api/"
 
     params = {"key": get_api_key_api(), "type": "export", "category": "filters-pcap", "from": "1.pcap"}
 
-    respone = requests.get(url, params=params, verify=False)
+    respone = requests.get(url, params=params, verify=False)  # nosec
 
     with open("captured.pcap", "wb") as pcap_file:
         pcap_file.write(respone.content)
 
 
 def compare_address_objects(address_objects, connection):
+    """Compares address objects."""
     results = []
     for addr in address_objects:
         # Set initial values to be used in final results (row)
@@ -217,6 +219,7 @@ def compare_address_objects(address_objects, connection):
 
 
 def compare_service_objects(service_objects, connection):
+    """Compares service objects."""
     results = []
     for svc in service_objects:
         # Set initial values to be used in final results (row)
@@ -255,6 +258,7 @@ def compare_service_objects(service_objects, connection):
 
 
 def parse_all_rule_names(xml_rules: str) -> list:
+    """Parse all rules names."""
     rule_names = []
     root = ET.fromstring(xml_rules)
     # Get names of rules
@@ -265,6 +269,7 @@ def parse_all_rule_names(xml_rules: str) -> list:
 
 
 def get_all_rules(device=None):
+    """Get all currently configured rules."""
     pano = connect_panorama()
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     device = pano.add(devices[0])
@@ -278,6 +283,7 @@ def get_all_rules(device=None):
 
 
 def split_rules(rules, title=""):
+    """Split rules into CSV format."""
     output = title or "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
     for rule in rules:
         sources = ""

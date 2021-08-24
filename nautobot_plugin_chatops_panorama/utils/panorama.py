@@ -1,16 +1,19 @@
 """Functions used for interacting with Panroama."""
-from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
-from panos.panorama import Panorama
-from panos.firewall import Firewall
-from panos.objects import AddressObject, ServiceObject
-from panos.errors import PanObjectMissing
-from requests.exceptions import RequestException
+import time
+
 import defusedxml.ElementTree as ET
 import requests
+
 from netmiko import ConnectHandler
-import time
+from panos.errors import PanObjectMissing
+from panos.firewall import Firewall
+from panos.objects import AddressObject, ServiceObject
+from panos.panorama import Panorama
 from panos.policies import Rulebase, SecurityRule
+from requests.exceptions import RequestException
+
+from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
 
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
@@ -44,7 +47,7 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def _get_group(groups, serial):
+def _get_group(groups: dict, serial: str) -> str:
     """Sort through fetched groups and serials and return group.
 
     Args:
@@ -54,30 +57,33 @@ def _get_group(groups, serial):
     Returns:
         group_name (str): Name of group serial is part of or None if serial not in a group
     """
-    for k, v in groups.items():
-        if serial in v:
-            return k
+    for key, val in groups.items():
+        if serial in val:
+            return key
+    return None
 
 
-def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
+def get_rule_match(five_tuple: dict, serial: str) -> dict:
     """Method to obtain the devices connected to Panorama.
 
     Args:
-        connection (Panorama): Connection object to Panorama.
+        five_tuple (dict): Five tuple dictionary for rule lookup
+        serial (str): Serial of firewall device to query
 
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
     host = PLUGIN_CFG["panorama_host"].rstrip("/")
-    fw = Firewall(serial=serial)
+    firewall = Firewall(serial=serial)
     pano = Panorama(host, api_key=get_api_key_api())
-    pano.add(fw)
-    return fw.test_security_policy_match(
+    pano.add(firewall)
+    match = firewall.test_security_policy_match(
         source=five_tuple["src_ip"],
         destination=five_tuple["dst_ip"],
         protocol=int(five_tuple["protocol"]),
         port=int(five_tuple["dst_port"]),
     )
+    return match
 
 
 def get_devices(connection: Panorama) -> dict:
@@ -120,16 +126,16 @@ def get_devices(connection: Panorama) -> dict:
     return _device_dict
 
 
-def start_packet_capture(ip: str, filters: dict):
+def start_packet_capture(ip_address: str, filters: dict):
     """Starts or stops packet capturing on the Managed FW.
 
     Args:
-        ip (str): IP address of the device
+        ip_address (str): IP address of the device
         filters (dict): Commands to pass to the device for packet capturing
     """
     dev_connect = {
         "device_type": "paloalto_panos",
-        "host": ip,
+        "host": ip_address,
         "username": PLUGIN_CFG["panorama_user"],
         "password": PLUGIN_CFG["panorama_password"],
     }
@@ -166,16 +172,16 @@ def start_packet_capture(ip: str, filters: dict):
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
     ssh.disconnect()
-    _get_pcap(ip)
+    _get_pcap(ip_address)
 
 
-def _get_pcap(ip: str):
+def _get_pcap(ip_address: str):
     """Downloads PCAP file from PANOS device.
 
     Args:
-        ip (str): IP address of the device
+        ip_address (str): IP address of the device
     """
-    url = f"https://{ip}/api/"
+    url = f"https://{ip_address}/api/"
 
     params = {"key": get_api_key_api(), "type": "export", "category": "filters-pcap", "from": "1.pcap"}
 

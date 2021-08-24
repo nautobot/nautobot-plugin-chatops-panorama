@@ -73,10 +73,10 @@ def prompt_for_versions(dispatcher, command, conn):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-def is_valid_cidr(ip: str) -> str:
+def is_valid_cidr(ip_address: str) -> str:
     """Checks if string is a valid IPv4 CIDR."""
     try:
-        return str(ip_network(str(ip)))
+        return str(ip_network(str(ip_address)))
     except ValueError:
         return ""
 
@@ -88,7 +88,9 @@ def panorama(subcommand, **kwargs):
 
 
 @subcommand_of("panorama")
-def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port):
+def validate_rule_exists(
+    dispatcher, device, src_ip, dst_ip, protocol, dst_port
+):  # pylint:disable=too-many-arguments,too-many-locals
     """Verify that the rule exists within a device, via Panorama."""
     dialog_list = [
         {
@@ -132,7 +134,8 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
             "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
         )
         return CommandStatusChoices.STATUS_ERRORED
-    elif not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
+
+    if not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
         dispatcher.send_markdown(
             f"Destination IP {dst_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
         )
@@ -146,7 +149,7 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
         return dispatcher.send_markdown(f"The device {device} was not found.")
 
     data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
-    matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
+    matching_rules = get_rule_match(five_tuple=data, serial=serial)
 
     if matching_rules:
         all_rules = list()
@@ -291,10 +294,10 @@ def validate_objects(dispatcher, device, object_type, device_group):
 
     object_results = []
     names = set()
-    for s in services:
-        computed_fields = s.get_computed_fields()
+    for service in services:
+        computed_fields = service.get_computed_fields()
 
-        if object_type == "address" or object_type == "all":
+        if object_type in ["address", "all"]:
             computed_objects = computed_fields.get("address_objects")
             obj_names = set(computed_objects.split(", "))
             current_objs = obj_names.difference(names)
@@ -302,7 +305,7 @@ def validate_objects(dispatcher, device, object_type, device_group):
             if computed_objects:
                 object_results.extend(compare_address_objects(current_objs, pano))
 
-        if object_type == "service" or object_type == "all":
+        if object_type in ["service", "all"]:
             computed_objects = computed_fields.get("service_objects")
             obj_names = set(computed_objects.split(", "))
             current_objs = obj_names.difference(names)
@@ -350,23 +353,23 @@ def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
-    logger.debug("Running /panorama export-device-rules, device=%s" % device)
+    logger.debug("Running /panorama export-device-rules, device=%s", device)
 
     rules = get_all_rules(device)
 
     file_name = "device_rules.csv"
 
     output = split_rules(rules)
-    with open(file_name, "w") as f:
-        f.write(output)
+    with open(file_name, "w") as file:
+        file.write(output)
 
     dispatcher.send_image(file_name)
 
     try:
         os.remove(file_name)
-        logger.debug("Deleted generated CSV file %s" % file_name)
+        logger.debug("Deleted generated CSV file %s", file_name)
     except FileNotFoundError:
-        logger.warning("Unable to delete generated CSV file %s" % file_name)
+        logger.warning("Unable to delete generated CSV file %s", file_name)
 
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -383,7 +386,7 @@ def capture_traffic(
     stage: str,
     capture_seconds: str,
     **kwargs,
-):
+):  # pylint:disable=too-many-arguments,too-many-return-statements
     """Capture IP traffic on PANOS Device.
 
     Args:
@@ -482,7 +485,7 @@ def capture_traffic(
     # else:
     try:
         dport = int(dport)
-        if not dport >= 1 or not dport <= 65535:
+        if dport < 1 or dport > 65535:
             raise ValueError
     except AttributeError:
         # Port may be a string, which is still valid

@@ -35,8 +35,8 @@ def _get_or_create_site(site: str) -> Site:
         site_obj.status = active_status
         try:
             site_obj.validated_save()
-        except ValidationError as e:
-            logger.error("Error saving newly created site %s: %s", (site, e))
+        except ValidationError as err:
+            logger.error("Error saving newly created site %s: %s", site, err)
     return site_obj
 
 
@@ -58,8 +58,8 @@ def _get_or_create_platform(description: str = "", platform: str = PANOS_PLATFOR
         platform_obj.description = description
         try:
             platform_obj.validated_save()
-        except ValidationError as e:
-            logger.error("Error saving newly created platform %s: %s", (platform, e))
+        except ValidationError as err:
+            logger.error("Error saving newly created platform %s: %s", platform, err)
 
     return platform_obj
 
@@ -77,8 +77,8 @@ def _get_or_create_manufacturer(manufacturer: str = PANOS_MANUFACTURER_NAME) -> 
     if created:
         try:
             manufacturer_obj.validated_save()
-        except ValidationError as e:
-            logger.error("Error saving newly created manufacturer %s: %s", (manufacturer, e))
+        except ValidationError as err:
+            logger.error("Error saving newly created manufacturer %s: %s", manufacturer, err)
     return manufacturer_obj
 
 
@@ -99,8 +99,8 @@ def _get_or_create_device_type(model: str, manufacturer: str = PANOS_MANUFACTURE
     if created:
         try:
             device_type_obj.validated_save()
-        except ValidationError as e:
-            logger.error("Error saving newly created device type %s: %s", (model, e))
+        except ValidationError as err:
+            logger.error("Error saving newly created device type %s: %s", model, err)
     return device_type_obj
 
 
@@ -117,8 +117,8 @@ def _get_or_create_device_role(role_name: str = PANOS_DEVICE_ROLE) -> DeviceRole
     if created:
         try:
             device_role_obj.validated_save()
-        except ValidationError as e:
-            logger.error("Error saving newly created device role %s: %s", (role_name, e))
+        except ValidationError as err:
+            logger.error("Error saving newly created device role %s: %s", role_name, err)
     return device_role_obj
 
 
@@ -150,8 +150,8 @@ def _get_or_create_device(
             device_obj.serial = serial
         try:
             device_obj.validated_save()
-        except ValidationError as e:
-            logger.error("Error saving newly created device %s: %s", (device, e))
+        except ValidationError as err:
+            logger.error("Error saving newly created device %s: %s", device, err)
     # TODO: Figure this out later
     # device_obj.custom_field_data['public_ipv4'] = '3.13.252.97'
     # device_obj.save()
@@ -175,8 +175,8 @@ def _get_or_create_interfaces(device: Device) -> List[Interface]:
         if created:
             try:
                 interface_obj.validated_save()
-            except ValidationError as e:
-                logger.error("Error saving newly created interface %s: %s", (interface, e))
+            except ValidationError as err:
+                logger.error("Error saving newly created interface %s: %s", interface, err)
         interfaces.append(interface_obj)
 
     return interfaces
@@ -204,17 +204,17 @@ def _get_or_create_management_ip(device: Device, interfaces: List[Interface], ip
 
     try:
         mgmt_ip_obj.validated_save()
-    except ValidationError as e:
+    except ValidationError as err:
         if created:
-            logger.error("Error saving newly created management IP %s: %s", (ip_address, e))
+            logger.error("Error saving newly created management IP %s: %s", ip_address, err)
         else:
-            logger.error("Error saving info for management IP %s: %s", (ip_address, e))
+            logger.error("Error saving info for management IP %s: %s", ip_address, err)
 
     device.primary_ip4_id = mgmt_ip_obj.id
 
     try:
         device.validated_save()
-    except ValidationError as e:
-        logger.error("Error saving management IP %s to device %s: %s", (ip_address, device.name, e))
+    except ValidationError as err:
+        logger.error("Error saving management IP %s to device %s: %s", ip_address, device.name, err)
 
     return mgmt_ip_obj

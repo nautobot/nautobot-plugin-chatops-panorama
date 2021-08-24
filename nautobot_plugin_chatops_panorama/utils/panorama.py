@@ -85,7 +85,7 @@ def get_devices(connection: Panorama) -> dict:
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
-    dev_list = connection.refresh_devices(expand_vsys=False, include_device_groups=False)
+    dev_list = connection.refresh_devices(include_device_groups=False)
 
     group_names = [device.name for device in connection.refresh_devices()]
     group_xml_obj = connection.op("show devicegroups")

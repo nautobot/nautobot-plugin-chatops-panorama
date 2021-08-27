@@ -1,7 +1,7 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
-import ipaddr
 import logging
-import requests
+import os
+from ipaddress import ip_network
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
@@ -13,7 +13,7 @@ from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS, PLUGIN_CFG
+from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS
 from nautobot_plugin_chatops_panorama.utils.nautobot import (
     _get_or_create_device_type,
     _get_or_create_device,
@@ -26,9 +26,7 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     get_devices,
     compare_address_objects,
     compare_service_objects,
-    get_api_key_api,
     get_rule_match,
-    parse_all_rule_names,
     start_packet_capture,
     get_all_rules,
     split_rules,
@@ -42,7 +40,7 @@ def prompt_for_panos_device_group(dispatcher, command, connection):
     """Prompt user for panos device group to check for groups from."""
     group_names = [device.name for device in connection.refresh_devices()]
     dispatcher.prompt_from_menu(command, "Select Panorama Device Group", [(grp, grp) for grp in group_names])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_object_type(dispatcher, command):
@@ -50,21 +48,21 @@ def prompt_for_object_type(dispatcher, command):
     dispatcher.prompt_from_menu(
         command, "Select an allowed object type", [(object_type, object_type) for object_type in ALLOWED_OBJECTS]
     )
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_nautobot_device(dispatcher, command):
     """Prompt user for firewall device within Nautobot."""
     _devices = Device.objects.all()
     dispatcher.prompt_from_menu(command, "Select a Nautobot Device", [(dev.name, str(dev.id)) for dev in _devices])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_device(dispatcher, command, conn):
     """Prompt the user to select a Palo Alto device."""
     _devices = get_devices(connection=conn)
     dispatcher.prompt_from_menu(command, "Select a Device", [(dev, dev) for dev in _devices])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_versions(dispatcher, command, conn):
@@ -72,7 +70,15 @@ def prompt_for_versions(dispatcher, command, conn):
     conn.software.check()
     versions = conn.software.versions
     dispatcher.prompt_from_menu(command, "Select a Version", [(ver, ver) for ver in versions])
-    return CommandStatusChoices.STATUS_ERRORED
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+def is_valid_cidr(ip_address: str) -> str:
+    """Checks if string is a valid IPv4 CIDR."""
+    try:
+        return str(ip_network(str(ip_address)))
+    except ValueError:
+        return ""
 
 
 @job("default")
@@ -82,14 +88,11 @@ def panorama(subcommand, **kwargs):
 
 
 @subcommand_of("panorama")
-def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port):
+def validate_rule_exists(
+    dispatcher, device, src_ip, dst_ip, protocol, dst_port
+):  # pylint:disable=too-many-arguments,too-many-locals
     """Verify that the rule exists within a device, via Panorama."""
-
     dialog_list = [
-        {
-            "type": "text",
-            "label": "Device",
-        },
         {
             "type": "text",
             "label": "Source IP",
@@ -110,17 +113,43 @@ def validate_rule_exists(dispatcher, device, src_ip, dst_ip, protocol, dst_port)
             "default": "443",
         },
     ]
-    if not all([device, src_ip, dst_ip, protocol, dst_port]):
-        dispatcher.multi_input_dialog("panorama", "validate-rule-exists", "Verify if rule exists", dialog_list)
-        return CommandStatusChoices.STATUS_SUCCEEDED
 
     pano = connect_panorama()
+    if not device:
+        return prompt_for_device(dispatcher, "panorama validate-rule-exists", pano)
+
+    if not all([src_ip, dst_ip, protocol, dst_port]):
+        dispatcher.multi_input_dialog(
+            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+        )
+        return CommandStatusChoices.STATUS_SUCCEEDED
+
+    # Validate IP addresses are valid or 'any' is used.
+    # TODO: Add support for hostnames
+    if not is_valid_cidr(src_ip) and src_ip.lower() != "any":
+        dispatcher.send_markdown(
+            f"Source IP {src_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
+        )
+        dispatcher.multi_input_dialog(
+            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+        )
+        return CommandStatusChoices.STATUS_ERRORED
+
+    if not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
+        dispatcher.send_markdown(
+            f"Destination IP {dst_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
+        )
+        dispatcher.multi_input_dialog(
+            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+        )
+        return CommandStatusChoices.STATUS_ERRORED
+
     serial = get_devices(connection=pano).get(device, {}).get("serial")
     if not serial:
         return dispatcher.send_markdown(f"The device {device} was not found.")
 
     data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
-    matching_rules = get_rule_match(connection=pano, five_tuple=data, serial=serial)
+    matching_rules = get_rule_match(five_tuple=data, serial=serial)
 
     if matching_rules:
         all_rules = list()
@@ -175,8 +204,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         return prompt_for_device(dispatcher, "panorama upload-software", pano)
 
     if not version:
-        prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
-        return CommandStatusChoices.STATUS_FAILED
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.")
@@ -187,7 +215,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         _firewall.software.download(version)
     except PanDeviceError as err:
         dispatcher.send_markdown(f"There was an issue uploading {version} to {device}. {err}")
-        return CommandStatusChoices.STATUS_FAILED
+        return CommandStatusChoices.STATUS_SUCCEEDED
     dispatcher.send_markdown(f"As requested, {version} is being uploaded to {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -266,10 +294,10 @@ def validate_objects(dispatcher, device, object_type, device_group):
 
     object_results = []
     names = set()
-    for s in services:
-        computed_fields = s.get_computed_fields()
+    for service in services:
+        computed_fields = service.get_computed_fields()
 
-        if object_type == "address" or object_type == "all":
+        if object_type in ["address", "all"]:
             computed_objects = computed_fields.get("address_objects")
             obj_names = set(computed_objects.split(", "))
             current_objs = obj_names.difference(names)
@@ -277,7 +305,7 @@ def validate_objects(dispatcher, device, object_type, device_group):
             if computed_objects:
                 object_results.extend(compare_address_objects(current_objs, pano))
 
-        if object_type == "service" or object_type == "all":
+        if object_type in ["service", "all"]:
             computed_objects = computed_fields.get("service_objects")
             obj_names = set(computed_objects.split(", "))
             current_objs = obj_names.difference(names)
@@ -286,50 +314,6 @@ def validate_objects(dispatcher, device, object_type, device_group):
                 object_results.extend(compare_service_objects(current_objs, pano))
 
     dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
-def get_pano_rules(dispatcher, **kwargs):
-    """Get list of firewall rules by name."""
-    logger.info("Pulling list of firewall rules by name.")
-    # pano = connect_panorama()
-    # if not device:
-    #     return prompt_for_nautobot_device(dispatcher, "panorama get-rules")
-    # device = Device.objects.get(id=device)
-    api_key = get_api_key_api()
-    params = {
-        "key": api_key,
-        "cmd": """
-            <show>
-                <rule-hit-count>
-                    <device-group>
-                        <entry name="Demo">
-                            <pre-rulebase>
-                            <entry name="security">
-                                <rules>
-                                    <all/>
-                                </rules>
-                            </entry>
-                            </pre-rulebase>
-                        </entry>
-                    </device-group>
-                </rule-hit-count>
-            </show>""",
-        "type": "op",
-    }
-    host = PLUGIN_CFG["panorama_host"].rstrip("/")
-    url = f"https://{host}/api/"
-    response = requests.get(url, params=params, verify=False)
-    if not response.ok:
-        dispatcher.send_markdown("Error retrieving device rules.")
-        return CommandStatusChoices.STATUS_FAILED
-
-    rule_names = parse_all_rule_names(response.text)
-    return_str = ""
-    for idx, name in enumerate(rule_names):
-        return_str += f"Rule {idx+1}\t\t{name}\n"
-    dispatcher.send_markdown(return_str)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -369,63 +353,67 @@ def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
-
-    rules = get_all_rules(device)
-
-    output = split_rules(rules)
-
-    # dispatcher.snippet(output)
-    dispatcher.send_snippet(output)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
-def export_device_rules_csv(dispatcher, device, **kwargs):
-    """Get list of firewall rules with details."""
-    if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+    logger.debug("Running /panorama export-device-rules, device=%s", device)
 
     rules = get_all_rules(device)
 
     file_name = "device_rules.csv"
 
     output = split_rules(rules)
-    with open(file_name, "w") as f:
-        f.write(output)
+    with open(file_name, "w") as file:
+        file.write(output)
 
-    # dispatcher.snippet(output)
-    dispatcher.send_image(file=file_name)
+    dispatcher.send_image(file_name)
+
+    try:
+        os.remove(file_name)
+        logger.debug("Deleted generated CSV file %s", file_name)
+    except FileNotFoundError:
+        logger.warning("Unable to delete generated CSV file %s", file_name)
+
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 @subcommand_of("panorama")
-def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds, **kwargs):
-    """Capture IP traffic on PANOS Device
+def capture_traffic(
+    dispatcher: object,
+    device: str,
+    snet: str,
+    dnet: str,
+    dport: str,
+    intf_name: str,
+    ip_proto: str,
+    stage: str,
+    capture_seconds: str,
+    **kwargs,
+):  # pylint:disable=too-many-arguments,too-many-return-statements
+    """Capture IP traffic on PANOS Device.
 
     Args:
-        device_id
-        snet
-        dnet
-        dport
-        intf_name
-        ip_proto
+        dispatcher (object): Chatops plugin dispatcher object
+        device (str): Device name
+        snet (str): Source IP/network in IPv4 CIDR notation
+        dnet (str): Destination IP/network in IPv4 CIDR notation
+        dport (str): Destination port
+        intf_name (str): Interface name
+        ip_proto (str): Protocol for destination port
+        stage (str): Stage to use
+        capture_seconds (str): Number of seconds to run packet capture
+
     """
     logger.info("Starting packet capturing.")
-    _devices = Device.objects.all()
 
     # ---------------------------------------------------
     # Get device to execute against
     # ---------------------------------------------------
-    if not device_id:
-        dispatcher.prompt_from_menu(
-            "panorama capture-traffic", "Select Palo-Alto Device", [(dev.name, str(dev.id)) for dev in _devices]
-        )
-        return CommandStatusChoices.STATUS_SUCCEEDED
+    pano = connect_panorama()
+    if not device:
+        return prompt_for_device(dispatcher, "panorama capture-traffic", pano)
 
     # ---------------------------------------------------
     # Get parameters used to filter packet capture
     # ---------------------------------------------------
-    _interfaces = Interface.objects.filter(device__id=device_id)
+    _interfaces = Interface.objects.filter(device__name=device)
     dialog_list = [
         {
             "type": "text",
@@ -470,40 +458,44 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     ]
 
     if not all([snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
-        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device_id}", "Capture Filter", dialog_list)
+        dispatcher.multi_input_dialog("panorama", f"capture-traffic {device}", "Capture Filter", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
     try:
-        ipaddr.IPv4Network(snet)
-    except Exception:
+        ip_network(snet)
+    except ValueError:
         dispatcher.send_markdown(
             f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation"
         )
         return CommandStatusChoices.STATUS_FAILED
 
     try:
-        ipaddr.IPv4Network(dnet)
-    except Exception:
+        ip_network(dnet)
+    except ValueError:
         dispatcher.send_markdown(
             f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation"
         )
         return CommandStatusChoices.STATUS_FAILED
 
-    if dport == "any":
-        dport = None
-    else:
-        try:
-            dport = int(dport)
-            if not dport >= 1 or not dport <= 65535:
-                raise ValueError
-        except Exception:
-            dispatcher.send_markdown(
-                f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
-            )
-            return CommandStatusChoices.STATUS_FAILED
+    # if dport.lower() == "any":
+    #     dport = None
+    # else:
+    try:
+        dport = int(dport)
+        if dport < 1 or dport > 65535:
+            raise ValueError
+    except AttributeError:
+        # Port may be a string, which is still valid
+        if dport.lower() == "any":
+            dport = None
+    except (TypeError, ValueError):
+        dispatcher.send_markdown(
+            f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
+        )
+        return CommandStatusChoices.STATUS_FAILED
 
     if ip_proto == "any":
         ip_proto = None
@@ -519,7 +511,7 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    device_ip = Device.objects.get(id=device_id).custom_field_data["public_ipv4"]
+    device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
     start_packet_capture(
         device_ip,

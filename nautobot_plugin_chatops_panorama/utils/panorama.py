@@ -57,9 +57,9 @@ def _get_group(groups: dict, serial: str) -> str:
     Returns:
         group_name (str): Name of group serial is part of or None if serial not in a group
     """
-    for key, val in groups.items():
-        if serial in val:
-            return key
+    for group_name, serial_numbers in groups.items():
+        if serial in serial_numbers:
+            return group_name
     return None
 
 

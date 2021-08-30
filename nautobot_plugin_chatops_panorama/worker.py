@@ -1,6 +1,7 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
 import logging
 import os
+import re
 from ipaddress import ip_network
 
 from django_rq import job
@@ -209,7 +210,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
     if "menu_offset" in version:
-        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=version[-2:])
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r'\d+', version)[0])
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.")
@@ -239,7 +240,7 @@ def install_software(dispatcher, device, version, **kwargs):
         return False
 
     if "menu_offset" in version:
-        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=version[-2:])
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r'\d+', version)[0])
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.")

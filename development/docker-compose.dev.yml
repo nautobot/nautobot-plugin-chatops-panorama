@@ -6,7 +6,7 @@
 version: "3.4"
 services:
   nautobot:
-    command: "nautobot-server runserver 0.0.0.0:8080 --nothreading"
+    command: "nautobot-server runserver 0.0.0.0:8080"
     volumes:
       - "./nautobot_config.py:/opt/nautobot/nautobot_config.py"
       - "../:/source"

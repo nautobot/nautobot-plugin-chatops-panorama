@@ -65,11 +65,13 @@ def prompt_for_device(dispatcher, command, conn):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-def prompt_for_versions(dispatcher, command, conn):
+def prompt_for_versions(dispatcher, command, conn, prompt_offset=None):
     """Prompt the user to select a version."""
     conn.software.check()
     versions = conn.software.versions
-    dispatcher.prompt_from_menu(command, "Select a Version", [(ver, ver) for ver in versions])
+    if prompt_offset:
+        prompt_offset = int(prompt_offset)
+    dispatcher.prompt_from_menu(command, "Select a Version", [(ver, ver) for ver in versions][prompt_offset:])
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -206,6 +208,9 @@ def upload_software(dispatcher, device, version, **kwargs):
     if not version:
         return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
+    if "menu_offset" in version:
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=version[-2:])
+
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.")
     _firewall = Firewall(serial=devs[device]["serial"])
@@ -232,6 +237,9 @@ def install_software(dispatcher, device, version, **kwargs):
     if not version:
         prompt_for_versions(dispatcher, f"panorama install-software {device}", pano)
         return False
+
+    if "menu_offset" in version:
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=version[-2:])
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.")

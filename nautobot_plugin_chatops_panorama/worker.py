@@ -32,9 +32,15 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     split_rules,
 )
 
+PALO_LOGO_PATH = "nautobot_palo/palo_resized.png"
+PALO_LOGO_ALT = "Palo Alto Networks Logo"
 
 logger = logging.getLogger("rq.worker")
 
+
+def palo_logo(dispatcher):
+    """Construct an image_element containing the locally hosted Palo Alto Networks logo."""
+    return dispatcher.image_element(dispatcher.static_url(PALO_LOGO_PATH), alt_text=PALO_LOGO_ALT)
 
 def prompt_for_panos_device_group(dispatcher, command, connection):
     """Prompt user for panos device group to check for groups from."""
@@ -171,6 +177,16 @@ def validate_rule_exists(
                 rule_list.append(service[:-2])
                 rule_list.append(rule.action)
                 all_rules.append(rule_list)
+        blocks = [
+            *dispatcher.command_response_header(
+                "panorama",
+                "validate_rule_exists",
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocl", protocol), ("Destination Port", dst_port)],
+                "validated rule",
+                palo_logo(dispatcher),
+            ),
+        ]
+        dispatcher.send_blocks(blocks)
         dispatcher.send_markdown(f"The Traffic is permitted via a rule named `{matching_rules[0]['name']}`:")
         dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     else:
@@ -190,6 +206,16 @@ def validate_rule_exists(
 def get_version(dispatcher):
     """Obtain software version information for Panorama."""
     pano = connect_panorama()
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "get_version",
+            [],
+            "Panorama version",
+            palo_logo(dispatcher),
+        )
+    ]
+    dispatcher.send_blocks(blocks)
     dispatcher.send_markdown(f"The version of Panorama is {pano.refresh_system_info().version}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -216,6 +242,16 @@ def upload_software(dispatcher, device, version, **kwargs):
     except PanDeviceError as err:
         dispatcher.send_markdown(f"There was an issue uploading {version} to {device}. {err}")
         return CommandStatusChoices.STATUS_SUCCEEDED
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "upload_software",
+            [("Device", device), ("Version", version)],
+            "uploaded software",
+            palo_logo(dispatcher),
+        ),
+    ]
+    dispatcher.send_blocks(blocks)
     dispatcher.send_markdown(f"As requested, {version} is being uploaded to {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -242,6 +278,16 @@ def install_software(dispatcher, device, version, **kwargs):
     except PanDeviceError as err:
         dispatcher.send_markdown(f"There was an issue installing {version} on {device}. {err}")
         return CommandStatusChoices.STATUS_FAILED
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "install_software",
+            [("Device", device), ("Version", version)],
+            "validated rule",
+            palo_logo(dispatcher),
+        ),
+    ]
+    dispatcher.send_blocks(blocks)
     dispatcher.send_markdown(f"As requested, {version} has been installed on {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -269,6 +315,16 @@ def sync_firewalls(dispatcher):
         # Add info for device creation to be sent to table creation at the end of task
         status = (name, data["group_name"], device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
         device_status.append(status)
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "sync_firewalls",
+            [],
+            "task",
+            palo_logo(dispatcher),
+        ),
+    ]
+    dispatcher.send_blocks(blocks)
     dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -313,6 +369,16 @@ def validate_objects(dispatcher, device, object_type, device_group):
             if computed_objects:
                 object_results.extend(compare_service_objects(current_objs, pano))
 
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "validate_objects",
+            [("Device", device), ("Object Type", object_type), ("Device Group", device_group)],
+            "information",
+            palo_logo(dispatcher),
+        ),
+    ]
+    dispatcher.send_blocks(blocks)
     dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -344,6 +410,16 @@ def get_device_rules(dispatcher, device, **kwargs):
         rule_list.append(rule.action)
         all_rules.append(rule_list)
 
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "get_device_rules",
+            [("Device", device)],
+            "information",
+            palo_logo(dispatcher),
+        ),
+    ]
+    dispatcher.send_blocks(blocks)
     dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -527,6 +603,14 @@ def capture_traffic(
             "capture_seconds": capture_seconds,
         },
     )
-
-    dispatcher.send_markdown("Here is the PCAP file that your requested!")
+    blocks = [
+        *dispatcher.command_response_header(
+            "panorama",
+            "capture_traffic",
+            [("Device", device), ("Source Network", snet), ("Destination Network"), ("Destination Port", dport), ("Interface Name", intf_name), ("IP Protocol", ip_proto), ("Stage", stage), ("Capture Seconds", capture_seconds)],
+            "PCAP file",
+            palo_logo(dispatcher),
+        ),
+    ]
+    dispatcher.send_blocks(blocks)
     return dispatcher.send_image("captured.pcap")

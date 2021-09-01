@@ -32,7 +32,7 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     split_rules,
 )
 
-PALO_LOGO_PATH = "nautobot_palo/palo_resized.png"
+PALO_LOGO_PATH = "nautobot_palo/palo_transparent.png"
 PALO_LOGO_ALT = "Palo Alto Networks Logo"
 
 logger = logging.getLogger("rq.worker")
@@ -133,7 +133,7 @@ def validate_rule_exists(
     # Validate IP addresses are valid or 'any' is used.
     # TODO: Add support for hostnames
     if not is_valid_cidr(src_ip) and src_ip.lower() != "any":
-        dispatcher.send_markdown(
+        dispatcher.send_warning(
             f"Source IP {src_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
         )
         dispatcher.multi_input_dialog(
@@ -142,7 +142,7 @@ def validate_rule_exists(
         return CommandStatusChoices.STATUS_ERRORED
 
     if not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
-        dispatcher.send_markdown(
+        dispatcher.send_warning(
             f"Destination IP {dst_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
         )
         dispatcher.multi_input_dialog(
@@ -152,7 +152,12 @@ def validate_rule_exists(
 
     serial = get_devices(connection=pano).get(device, {}).get("serial")
     if not serial:
-        return dispatcher.send_markdown(f"The device {device} was not found.")
+        return dispatcher.send_warning(f"The device {device} was not found.")
+
+    dispatcher.send_markdown(
+        f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now.",
+        ephemeral=True,
+    )
 
     data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
     matching_rules = get_rule_match(five_tuple=data, serial=serial)
@@ -181,7 +186,7 @@ def validate_rule_exists(
             *dispatcher.command_response_header(
                 "panorama",
                 "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocl", protocol), ("Destination Port", dst_port)],
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol), ("Destination Port", dst_port)],
                 "validated rule",
                 palo_logo(dispatcher),
             ),
@@ -190,6 +195,16 @@ def validate_rule_exists(
         dispatcher.send_markdown(f"The Traffic is permitted via a rule named `{matching_rules[0]['name']}`:")
         dispatcher.send_large_table(("Name", "Source", "Destination", "Service", "Action"), all_rules)
     else:
+        blocks = [
+            *dispatcher.command_response_header(
+                "panorama",
+                "validate_rule_exists",
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol), ("Destination Port", dst_port)],
+                "rule validation",
+                palo_logo(dispatcher),
+            ),
+        ]
+        dispatcher.send_blocks(blocks)
         dispatcher.send_markdown("`No matching rule` found for:")
         all_values = [
             ["Device", device],
@@ -205,6 +220,11 @@ def validate_rule_exists(
 @subcommand_of("panorama")
 def get_version(dispatcher):
     """Obtain software version information for Panorama."""
+
+    dispatcher.send_markdown(
+    f"Standby {dispatcher.user_mention()}, I'm getting Panorama's version for you.",
+    ephemeral=True,
+)
     pano = connect_panorama()
     blocks = [
         *dispatcher.command_response_header(
@@ -233,21 +253,31 @@ def upload_software(dispatcher, device, version, **kwargs):
         return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
     devs = get_devices(connection=pano)
-    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.")
+    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True)
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
-    dispatcher.send_markdown("Starting download now...")
+    dispatcher.send_markdown("Starting download now...", ephemeral=True)
     try:
         _firewall.software.download(version)
     except PanDeviceError as err:
-        dispatcher.send_markdown(f"There was an issue uploading {version} to {device}. {err}")
+        blocks = [
+            *dispatcher.command_response_header(
+                "panorama",
+                "upload_software",
+                [("Device", device), ("Version", version)],
+                "information on that upload software task",
+                palo_logo(dispatcher),
+            ),
+        ]
+        dispatcher.send_blocks(blocks)
+        dispatcher.send_warning(f"There was an issue uploading {version} to {device}. {err}")
         return CommandStatusChoices.STATUS_SUCCEEDED
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
             "upload_software",
             [("Device", device), ("Version", version)],
-            "uploaded software",
+            "information on that upload software task",
             palo_logo(dispatcher),
         ),
     ]
@@ -270,20 +300,30 @@ def install_software(dispatcher, device, version, **kwargs):
         return False
 
     devs = get_devices(connection=pano)
-    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.")
+    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True)
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
     try:
         _firewall.software.install(version)
     except PanDeviceError as err:
-        dispatcher.send_markdown(f"There was an issue installing {version} on {device}. {err}")
+        blocks = [
+            *dispatcher.command_response_header(
+                "panorama",
+                "install_software",
+                [("Device", device), ("Version", version)],
+                "information on that install software task",
+                palo_logo(dispatcher),
+            ),
+        ]
+        dispatcher.send_blocks(blocks)
+        dispatcher.send_warning(f"There was an issue installing {version} on {device}. {err}")
         return CommandStatusChoices.STATUS_FAILED
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
             "install_software",
             [("Device", device), ("Version", version)],
-            "validated rule",
+            "information on that install software task",
             palo_logo(dispatcher),
         ),
     ]
@@ -296,6 +336,10 @@ def install_software(dispatcher, device, version, **kwargs):
 def sync_firewalls(dispatcher):
     """Sync firewalls into Nautobot."""
     logger.info("Starting synchronization from Panorama.")
+    dispatcher.send_markdown(
+        f"Standby {dispatcher.user_mention()}, I'm syncing firewalls from Panorama to Nautobot.",
+        ephemeral=True,
+    )
     pano = connect_panorama()
     devices = get_devices(connection=pano)
     device_status = []
@@ -320,7 +364,7 @@ def sync_firewalls(dispatcher):
             "panorama",
             "sync_firewalls",
             [],
-            "task",
+            "information on that sync task",
             palo_logo(dispatcher),
         ),
     ]
@@ -346,8 +390,12 @@ def validate_objects(dispatcher, device, object_type, device_group):
     device = Device.objects.get(id=device)
     services = Service.objects.filter(device=device)
     if not services:
-        return dispatcher.send_markdown(f"No available services to validate against for {device}")
+        return dispatcher.send_warning(f"No available services to validate against for {device}")
 
+    dispatcher.send_markdown(
+        f"Standby {dispatcher.user_mention()}, I'm validating {object_type} on device {device} in the device group {device_group}.",
+        ephemeral=True,
+    )
     object_results = []
     names = set()
     for service in services:
@@ -389,6 +437,11 @@ def get_device_rules(dispatcher, device, **kwargs):
     if not device:
         return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
 
+    dispatcher.send_markdown(
+        f"Standby {dispatcher.user_mention()}, I'm getting the rules for device {device}.",
+        ephemeral=True,
+    )
+
     rules = get_all_rules(device)
 
     all_rules = list()
@@ -415,7 +468,7 @@ def get_device_rules(dispatcher, device, **kwargs):
             "panorama",
             "get_device_rules",
             [("Device", device)],
-            "information",
+            f"rules for device {device}",
             palo_logo(dispatcher),
         ),
     ]
@@ -431,6 +484,10 @@ def export_device_rules(dispatcher, device, **kwargs):
         return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
     logger.debug("Running /panorama export-device-rules, device=%s", device)
 
+    dispatcher.send_markdown(
+        f"Standby {dispatcher.user_mention()}, I'm creating the CSV file for the rules on device {device}.",
+        ephemeral=True,
+    )
     rules = get_all_rules(device)
 
     file_name = "device_rules.csv"
@@ -543,7 +600,7 @@ def capture_traffic(
     try:
         ip_network(snet)
     except ValueError:
-        dispatcher.send_markdown(
+        dispatcher.send_warning(
             f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation"
         )
         return CommandStatusChoices.STATUS_FAILED
@@ -551,7 +608,7 @@ def capture_traffic(
     try:
         ip_network(dnet)
     except ValueError:
-        dispatcher.send_markdown(
+        dispatcher.send_warning(
             f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation"
         )
         return CommandStatusChoices.STATUS_FAILED
@@ -568,7 +625,7 @@ def capture_traffic(
         if dport.lower() == "any":
             dport = None
     except (TypeError, ValueError):
-        dispatcher.send_markdown(
+        dispatcher.send_warning(
             f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
         )
         return CommandStatusChoices.STATUS_FAILED
@@ -581,7 +638,7 @@ def capture_traffic(
         if capture_seconds > 120 or capture_seconds < 1:
             raise ValueError
     except ValueError:
-        dispatcher.send_markdown("Capture Seconds must be specified as a number in the range 1-120")
+        dispatcher.send_warning("Capture Seconds must be specified as a number in the range 1-120")
         return CommandStatusChoices.STATUS_FAILED
 
     # ---------------------------------------------------

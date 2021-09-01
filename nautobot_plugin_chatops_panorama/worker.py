@@ -520,7 +520,6 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    dispatcher.send_markdown(f"device: {device}")
     try:
         device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
         logger.info("Attempting packet capture to device %s via public IP address %s.", device, device_ip)

@@ -401,7 +401,7 @@ def capture_traffic(
         capture_seconds (str): Number of seconds to run packet capture
 
     """
-    logger.info("Starting packet capturing.")
+    logger.info("Starting packet capture")
 
     # ---------------------------------------------------
     # Get device to execute against
@@ -461,6 +461,18 @@ def capture_traffic(
         dispatcher.multi_input_dialog("panorama", f"capture-traffic {device}", "Capture Filter", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
+    logger.debug(
+        "Running packet capture with the following information:\nDevice - %s\nSource Network - %s\nDestination Network - %s\nDestination Port - %s\nInterface Name - %s\nIP Protocol - %s\nStage - %s\nCapture Seconds - %s",
+        device,
+        snet,
+        dnet,
+        dport,
+        intf_name,
+        ip_proto,
+        stage,
+        capture_seconds,
+    )
+
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
@@ -480,18 +492,15 @@ def capture_traffic(
         )
         return CommandStatusChoices.STATUS_FAILED
 
-    # if dport.lower() == "any":
-    #     dport = None
-    # else:
     try:
         dport = int(dport)
         if dport < 1 or dport > 65535:
             raise ValueError
-    except AttributeError:
+    except ValueError:
         # Port may be a string, which is still valid
         if dport.lower() == "any":
             dport = None
-    except (TypeError, ValueError):
+    except (AttributeError, TypeError):
         dispatcher.send_markdown(
             f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
         )
@@ -511,7 +520,18 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
+    dispatcher.send_markdown(f"device: {device}")
+    try:
+        device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
+        logger.info("Attempting packet capture to device %s via public IP address %s.", device, device_ip)
+    except KeyError:
+        logger.warning("No Public IPv4 address assigned to device %s in Nautobot.", device)
+        device_ip = Device.objects.get(name=device).primary_ip4
+        logger.info("Attempting packet capture to device %s via primary IP address %s.", device, device_ip)
+
+    # Convert IPAddress model type to string
+    device_ip = str(device_ip)
+
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
     start_packet_capture(
         device_ip,

@@ -14,14 +14,12 @@ from nautobot.core.settings_funcs import is_truthy, parse_redis_connection
 
 # Enforce required configuration parameters
 for key in [
-    "ALLOWED_HOSTS",
-    "POSTGRES_DB",
-    "POSTGRES_USER",
-    "POSTGRES_HOST",
-    "POSTGRES_PASSWORD",
-    "REDIS_HOST",
-    "REDIS_PASSWORD",
-    "SECRET_KEY",
+    "NAUTOBOT_ALLOWED_HOSTS",
+    "NAUTOBOT_DB_USER",
+    "NAUTOBOT_DB_PASSWORD",
+    "NAUTOBOT_REDIS_HOST",
+    "NAUTOBOT_REDIS_PASSWORD",
+    "NAUTOBOT_SECRET_KEY",
 ]:
     if not os.environ.get(key):
         raise ImproperlyConfigured(f"Required environment variable {key} is missing.")
@@ -33,30 +31,28 @@ TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 # access to the server via any other hostnames. The first FQDN in the list will be treated as the preferred name.
 #
 # Example: ALLOWED_HOSTS = ['nautobot.example.com', 'nautobot.internal.local']
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS").split(" ")
+ALLOWED_HOSTS = os.getenv("NAUTOBOT_ALLOWED_HOSTS", "").split(" ")
 
-# PostgreSQL database configuration. See the Django documentation for a complete list of available parameters:
-#   https://docs.djangoproject.com/en/stable/ref/settings/#databases
 DATABASES = {
     "default": {
-        "NAME": os.getenv("POSTGRES_DB", "nautobot"),  # Database name
-        "USER": os.getenv("POSTGRES_USER", ""),  # Database username
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),  # Datbase password
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),  # Database server
-        "PORT": os.getenv("POSTGRES_PORT", ""),  # Database port (leave blank for default)
-        "CONN_MAX_AGE": os.getenv("POSTGRES_TIMEOUT", 300),  # Database timeout
-        "ENGINE": "django.db.backends.postgresql",  # Database driver (Postgres only supported!)
+        "NAME": os.getenv("NAUTOBOT_DB_NAME", "nautobot"),  # Database name
+        "USER": os.getenv("NAUTOBOT_DB_USER", ""),  # Database username
+        "PASSWORD": os.getenv("NAUTOBOT_DB_PASSWORD", ""),  # Datbase password
+        "HOST": os.getenv("NAUTOBOT_DB_HOST", "localhost"),  # Database server
+        "PORT": os.getenv("NAUTOBOT_DB_PORT", ""),  # Database port (leave blank for default)
+        "CONN_MAX_AGE": int(os.environ.get("NAUTOBOT_DB_TIMEOUT", 300)),  # Database timeout
+        "ENGINE": os.getenv("NAUTOBOT_DB_ENGINE", "django.db.backends.postgresql"),  # Database driver
     }
 }
 
 # Redis variables
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = os.getenv("REDIS_PORT", 6379)
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+REDIS_HOST = os.getenv("NAUTOBOT_REDIS_HOST", "localhost")
+REDIS_PORT = os.getenv("NAUTOBOT_REDIS_PORT", "6379")
+REDIS_PASSWORD = os.getenv("NAUTOBOT_REDIS_PASSWORD", "")
 
 # Check for Redis SSL
 REDIS_SCHEME = "redis"
-REDIS_SSL = is_truthy(os.environ.get("REDIS_SSL", False))
+REDIS_SSL = is_truthy(os.getenv("REDIS_SSL", "False"))
 if REDIS_SSL:
     REDIS_SCHEME = "rediss"
 
@@ -236,18 +232,20 @@ PLUGINS = ["nautobot_chatops", "nautobot_plugin_chatops_panorama"]
 # Each key in the dictionary is the name of an installed plugin and its value is a dictionary of settings.
 PLUGINS_CONFIG = {
     "nautobot_chatops": {
-        "enable_slack": is_truthy(os.environ.get("NAUTOBOT_CHATOPS_ENABLE_SLACK", False)),
-        "slack_api_token": os.environ.get("NAUTOBOT_CHATOPS_SLACK_API_TOKEN", ""),
-        "slack_signing_secret": os.environ.get("NAUTOBOT_CHATOPS_SIGNING_SECRET", ""),
+        "enable_slack": True,
+        "enable_ms_teams": True,
+        "enable_webex": True,
+        "slack_api_token": os.environ.get("SLACK_API_TOKEN"),
+        "slack_signing_secret": os.environ.get("SLACK_SIGNING_SECRET"),
         "slack_slash_command_prefix": os.environ.get("SLACK_SLASH_COMMAND_PREFIX", "/"),
         "enable_mattermost": is_truthy(os.environ.get("NAUTOBOT_CHATOPS_ENABLE_MATTERMOST", False)),
         "mattermost_api_token": os.environ.get("NAUTOBOT_CHATOPS_MATTERMOST_API_TOKEN", ""),
         "mattermost_url": os.environ.get("NAUTOBOT_CHATOPS_MATTERMOST_URL", ""),
     },
     "nautobot_plugin_chatops_panorama": {
-        "panorama_host": os.environ.get("PANORAMA_HOST", ""),
-        "panorama_user": os.environ.get("PANORAMA_USER", ""),
-        "panorama_password": os.environ.get("PANORAMA_PASSWORD", ""),
+        "panorama_host": os.environ.get("PANORAMA_HOST"),
+        "panorama_user": os.environ.get("PANORAMA_USER"),
+        "panorama_password": os.environ.get("PANORAMA_PASSWORD"),
     },
 }
 
@@ -320,10 +318,10 @@ if "debug_toolbar.middleware.DebugToolbarMiddleware" not in settings.MIDDLEWARE:
 #
 
 # Global Celery task timeout (in seconds)
-CELERY_TASK_TIME_LIMIT = int(os.getenv("NAUTOBOT_CELERY_TASK_TIME_LIMIT", 30 * 60))
+# CELERY_TASK_TIME_LIMIT = int(os.getenv("NAUTOBOT_CELERY_TASK_TIME_LIMIT", 30 * 60))
 
 # Celery broker URL used to tell workers where queues are located
-CELERY_BROKER_URL = os.getenv("NAUTOBOT_CELERY_BROKER_URL", parse_redis_connection(redis_database=0))
+# CELERY_BROKER_URL = os.getenv("NAUTOBOT_CELERY_BROKER_URL", parse_redis_connection(redis_database=0))
 
 # Celery results backend URL to tell workers where to publish task results
-CELERY_RESULT_BACKEND = os.getenv("NAUTOBOT_CELERY_RESULT_BACKEND", parse_redis_connection(redis_database=0))
+# CELERY_RESULT_BACKEND = os.getenv("NAUTOBOT_CELERY_RESULT_BACKEND", parse_redis_connection(redis_database=0))

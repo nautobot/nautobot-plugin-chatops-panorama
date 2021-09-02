@@ -9,7 +9,7 @@ services:
     volumes:
       - "postgres_data:/var/lib/postgresql/data"
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
   redis:
     image: "redis:6-alpine"
     command:
@@ -20,22 +20,6 @@ services:
       - "dev.env"
       - "creds.env"
     ports:
-      - "127.0.0.1:6379:6379"
-  celery_worker:
-    image: "nautobot-plugin-chatops-panorama/nautobot:${NAUTOBOT_VER}-py${PYTHON_VER}"
-    entrypoint: "nautobot-server celery worker -B -l INFO"
-    healthcheck:
-      interval: 5s
-      timeout: 5s
-      start_period: 5s
-      retries: 3
-      test: ["CMD", "nautobot-server", "health_check"]
-    depends_on:
-      - nautobot
-      - redis
-    env_file:
-      - ./dev.env
-      - "creds.env"
-    tty: true
+      - "6379:6379"
 volumes:
   postgres_data: {}

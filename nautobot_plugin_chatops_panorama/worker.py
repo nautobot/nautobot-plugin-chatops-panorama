@@ -329,8 +329,9 @@ def validate_objects(dispatcher, device, object_type, device_group):
 @subcommand_of("panorama")
 def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
+    pano = connect_panorama()
     if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
+        return prompt_for_device(dispatcher, "panorama get-device-rules", pano)
 
     rules = get_all_rules(device)
 
@@ -360,8 +361,9 @@ def get_device_rules(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
+    pano = connect_panorama()
     if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+        return prompt_for_device(dispatcher, "panorama export-device-rules", pano)
     logger.debug("Running /panorama export-device-rules, device=%s", device)
 
     rules = get_all_rules(device)

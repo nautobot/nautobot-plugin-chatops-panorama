@@ -2,6 +2,7 @@
 import logging
 import os
 from ipaddress import ip_network
+from netutils.protocol_mapper import PROTO_NUM_TO_NAME
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
@@ -186,7 +187,7 @@ def validate_rule_exists(
             *dispatcher.command_response_header(
                 "panorama",
                 "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol), ("Destination Port", dst_port)],
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", PROTO_NUM_TO_NAME.get(int(protocol), protocol)), ("Destination Port", dst_port)],
                 "validated rule",
                 palo_logo(dispatcher),
             ),
@@ -199,7 +200,7 @@ def validate_rule_exists(
             *dispatcher.command_response_header(
                 "panorama",
                 "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol), ("Destination Port", dst_port)],
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", PROTO_NUM_TO_NAME.get(int(protocol), protocol)), ("Destination Port", dst_port)],
                 "rule validation",
                 palo_logo(dispatcher),
             ),

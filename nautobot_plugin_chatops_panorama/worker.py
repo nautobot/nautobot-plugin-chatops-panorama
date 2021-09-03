@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from ipaddress import ip_network
-from netutils.protocol_mapper import PROTO_NUM_TO_NAME
+from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
@@ -114,8 +114,8 @@ def validate_rule_exists(
         {
             "type": "select",
             "label": "Dest IP",
-            "choices": [("TCP", "6"), ("UDP", "17")],
-            "default": ("TCP", "6"),
+            "choices": [("TCP", "TCP"), ("UDP", "UDP")],
+            "default": ("TCP", "TCP"),
         },
         {
             "type": "text",
@@ -159,11 +159,11 @@ def validate_rule_exists(
         return dispatcher.send_warning(f"The device {device} was not found.")
 
     dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now.",
+        f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now. ",
         ephemeral=True,
     )
 
-    data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": dst_port}
+    data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": PROTO_NAME_TO_NUM.get(protocol.upper()), "dst_port": dst_port}
     matching_rules = get_rule_match(five_tuple=data, serial=serial)
 
     if matching_rules:
@@ -190,7 +190,7 @@ def validate_rule_exists(
             *dispatcher.command_response_header(
                 "panorama",
                 "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", PROTO_NUM_TO_NAME.get(int(protocol), protocol)), ("Destination Port", dst_port)],
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol.upper()), ("Destination Port", dst_port)],
                 "validated rule",
                 palo_logo(dispatcher),
             ),
@@ -203,7 +203,7 @@ def validate_rule_exists(
             *dispatcher.command_response_header(
                 "panorama",
                 "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", PROTO_NUM_TO_NAME.get(int(protocol), protocol)), ("Destination Port", dst_port)],
+                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol.upper()), ("Destination Port", dst_port)],
                 "rule validation",
                 palo_logo(dispatcher),
             ),

@@ -1,6 +1,7 @@
 """Example rq worker to handle /panorama chat commands with 1 subcommand addition."""
 import logging
 import os
+import re
 from ipaddress import ip_network
 from netutils.protocol_mapper import PROTO_NUM_TO_NAME
 
@@ -72,11 +73,13 @@ def prompt_for_device(dispatcher, command, conn):
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
-def prompt_for_versions(dispatcher, command, conn):
+def prompt_for_versions(dispatcher, command, conn, prompt_offset=None):
     """Prompt the user to select a version."""
     conn.software.check()
     versions = conn.software.versions
-    dispatcher.prompt_from_menu(command, "Select a Version", [(ver, ver) for ver in versions])
+    if prompt_offset:
+        prompt_offset = int(prompt_offset)
+    dispatcher.prompt_from_menu(command, "Select a Version", [(ver, ver) for ver in versions][prompt_offset:])
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -253,6 +256,9 @@ def upload_software(dispatcher, device, version, **kwargs):
     if not version:
         return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
+    if "menu_offset" in version:
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r'\d+', version)[0])
+
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True)
     _firewall = Firewall(serial=devs[device]["serial"])
@@ -299,6 +305,9 @@ def install_software(dispatcher, device, version, **kwargs):
     if not version:
         prompt_for_versions(dispatcher, f"panorama install-software {device}", pano)
         return False
+
+    if "menu_offset" in version:
+        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r'\d+', version)[0])
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True)
@@ -535,7 +544,7 @@ def capture_traffic(
         capture_seconds (str): Number of seconds to run packet capture
 
     """
-    logger.info("Starting packet capturing.")
+    logger.info("Starting packet capture")
 
     # ---------------------------------------------------
     # Get device to execute against
@@ -595,6 +604,18 @@ def capture_traffic(
         dispatcher.multi_input_dialog("panorama", f"capture-traffic {device}", "Capture Filter", dialog_list)
         return CommandStatusChoices.STATUS_SUCCEEDED
 
+    logger.debug(
+        "Running packet capture with the following information:\nDevice - %s\nSource Network - %s\nDestination Network - %s\nDestination Port - %s\nInterface Name - %s\nIP Protocol - %s\nStage - %s\nCapture Seconds - %s",
+        device,
+        snet,
+        dnet,
+        dport,
+        intf_name,
+        ip_proto,
+        stage,
+        capture_seconds,
+    )
+
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
@@ -614,14 +635,11 @@ def capture_traffic(
         )
         return CommandStatusChoices.STATUS_FAILED
 
-    # if dport.lower() == "any":
-    #     dport = None
-    # else:
     try:
         dport = int(dport)
         if dport < 1 or dport > 65535:
             raise ValueError
-    except AttributeError:
+    except ValueError:
         # Port may be a string, which is still valid
         if dport.lower() == "any":
             dport = None
@@ -645,7 +663,17 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
+    try:
+        device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
+        logger.info("Attempting packet capture to device %s via public IP address %s.", device, device_ip)
+    except KeyError:
+        logger.warning("No Public IPv4 address assigned to device %s in Nautobot.", device)
+        device_ip = Device.objects.get(name=device).primary_ip4
+        logger.info("Attempting packet capture to device %s via primary IP address %s.", device, device_ip)
+
+    # Convert IPAddress model type to string
+    device_ip = str(device_ip)
+
     dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
     start_packet_capture(
         device_ip,

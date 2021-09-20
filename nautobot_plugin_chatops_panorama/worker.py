@@ -15,19 +15,11 @@ from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 
-from nautobot_plugin_chatops_panorama.constant import UNKNOWN_SITE, ALLOWED_OBJECTS
-from nautobot_plugin_chatops_panorama.utils.nautobot import (
-    _get_or_create_device_type,
-    _get_or_create_device,
-    _get_or_create_interfaces,
-    _get_or_create_management_ip,
-)
+from nautobot_plugin_chatops_panorama.constant import ALLOWED_OBJECTS
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
     get_devices,
-    compare_address_objects,
-    compare_service_objects,
     get_rule_match,
     start_packet_capture,
     get_all_rules,
@@ -341,111 +333,12 @@ def install_software(dispatcher, device, version, **kwargs):
     dispatcher.send_markdown(f"As requested, {version} has been installed on {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
-
-@subcommand_of("panorama")
-def sync_firewalls(dispatcher):
-    """Sync firewalls into Nautobot."""
-    logger.info("Starting synchronization from Panorama.")
-    dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm syncing firewalls from Panorama to Nautobot.",
-        ephemeral=True,
-    )
-    pano = connect_panorama()
-    devices = get_devices(connection=pano)
-    device_status = []
-    for name, data in devices.items():
-        if not data["group_name"]:
-            data["group_name"] = UNKNOWN_SITE
-        # logic to create device type based on model
-        device_type = _get_or_create_device_type(data["model"])
-        # logic to create device
-        device = _get_or_create_device(
-            name, data["group_name"], device_type, serial=data["serial"], os_description=data["os_version"]
-        )
-        # # logic to create interfaces
-        interfaces = _get_or_create_interfaces(device)
-        # # logic to assign ip_address to mgmt interface
-        mgmt_ip = _get_or_create_management_ip(device, interfaces, data["ip_address"])
-        # Add info for device creation to be sent to table creation at the end of task
-        status = (name, data["group_name"], device_type, mgmt_ip, ", ".join([intf.name for intf in interfaces]))
-        device_status.append(status)
-    blocks = [
-        *dispatcher.command_response_header(
-            "panorama",
-            "sync_firewalls",
-            [],
-            "information on that sync task",
-            palo_logo(dispatcher),
-        ),
-    ]
-    dispatcher.send_blocks(blocks)
-    dispatcher.send_large_table(("Name", "Site", "Type", "Primary IP", "Interfaces"), device_status)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-@subcommand_of("panorama")
-def validate_objects(dispatcher, device, object_type, device_group):
-    """Validate Address Objects exist for a device."""
-    logger.info("Starting synchronization from Panorama.")
-    if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama validate-objects")
-    if not object_type:
-        return prompt_for_object_type(dispatcher, f"panorama validate-objects {device}")
-
-    pano = connect_panorama()
-    if not device_group:
-        return prompt_for_panos_device_group(dispatcher, f"panorama validate-objects {device} {object_type}", pano)
-
-    pano = pano.add(DeviceGroup(name=device_group))
-    device = Device.objects.get(id=device)
-    services = Service.objects.filter(device=device)
-    if not services:
-        return dispatcher.send_warning(f"No available services to validate against for {device}")
-
-    dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm validating {object_type} on device {device} in the device group {device_group}.",
-        ephemeral=True,
-    )
-    object_results = []
-    names = set()
-    for service in services:
-        computed_fields = service.get_computed_fields()
-
-        if object_type in ["address", "all"]:
-            computed_objects = computed_fields.get("address_objects")
-            obj_names = set(computed_objects.split(", "))
-            current_objs = obj_names.difference(names)
-            names.update(current_objs)
-            if computed_objects:
-                object_results.extend(compare_address_objects(current_objs, pano))
-
-        if object_type in ["service", "all"]:
-            computed_objects = computed_fields.get("service_objects")
-            obj_names = set(computed_objects.split(", "))
-            current_objs = obj_names.difference(names)
-            names.update(current_objs)
-            if computed_objects:
-                object_results.extend(compare_service_objects(current_objs, pano))
-
-    blocks = [
-        *dispatcher.command_response_header(
-            "panorama",
-            "validate_objects",
-            [("Device", device), ("Object Type", object_type), ("Device Group", device_group)],
-            "information",
-            palo_logo(dispatcher),
-        ),
-    ]
-    dispatcher.send_blocks(blocks)
-    dispatcher.send_large_table(("Name", "Object Type", "Status (Nautobot/Panorama)"), object_results)
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
 @subcommand_of("panorama")
 def get_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
+    pano = connect_panorama()
     if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama get-device-rules")
+        return prompt_for_device(dispatcher, "panorama get-device-rules", pano)
 
     dispatcher.send_markdown(
         f"Standby {dispatcher.user_mention()}, I'm getting the rules for device {device}.",
@@ -490,8 +383,9 @@ def get_device_rules(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
+    pano = connect_panorama()
     if not device:
-        return prompt_for_nautobot_device(dispatcher, "panorama export-device-rules")
+        return prompt_for_device(dispatcher, "panorama export-device-rules", pano)
     logger.debug("Running /panorama export-device-rules, device=%s", device)
 
     dispatcher.send_markdown(

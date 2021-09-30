@@ -139,7 +139,6 @@ def validate_rule_exists(
 
     if not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
         dispatcher.send_warning(
-            f"Destination IP {dst_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
         )
         dispatcher.multi_input_dialog(
             "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
@@ -222,6 +221,7 @@ def get_version(dispatcher):
     ephemeral=True,
 )
     pano = connect_panorama()
+    version = pano.refresh_system_info().version
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
@@ -232,7 +232,7 @@ def get_version(dispatcher):
         )
     ]
     dispatcher.send_blocks(blocks)
-    dispatcher.send_markdown(f"The version of Panorama is {pano.refresh_system_info().version}.")
+    dispatcher.send_markdown(f"The version of Panorama is {version}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

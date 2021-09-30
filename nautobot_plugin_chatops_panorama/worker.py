@@ -398,7 +398,7 @@ def export_device_rules(dispatcher, device, **kwargs):
     pano = connect_panorama()
     rules = get_all_rules(device, pano)
 
-    file_name = "device_rules.csv"
+    file_name = f"{device}-device-rules.csv"
 
     output = split_rules(rules)
     with open(file_name, "w") as file:

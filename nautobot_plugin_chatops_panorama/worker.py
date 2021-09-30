@@ -116,6 +116,12 @@ def validate_rule_exists(
         },
     ]
 
+    if all([device, src_ip, dst_ip, protocol, dst_port]):
+        dispatcher.send_markdown(
+            f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now. ",
+            ephemeral=True,
+        )
+
     pano = connect_panorama()
     if not device:
         return prompt_for_device(dispatcher, "panorama validate-rule-exists", pano)
@@ -148,11 +154,6 @@ def validate_rule_exists(
     serial = get_devices(connection=pano).get(device, {}).get("serial")
     if not serial:
         return dispatcher.send_warning(f"The device {device} was not found.")
-
-    dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now. ",
-        ephemeral=True,
-    )
 
     data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": PROTO_NAME_TO_NUM.get(protocol.upper()), "dst_port": dst_port}
     matching_rules = get_rule_match(five_tuple=data, serial=serial)

@@ -383,7 +383,7 @@ def get_device_rules(dispatcher, device, **kwargs):
 
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
-    """Get list of firewall rules with details."""
+    """Generate list of firewall rules with details in CSV format."""
 
     if device:
         dispatcher.send_markdown(
@@ -444,10 +444,18 @@ def capture_traffic(
     """
     logger.info("Starting packet capture")
 
+
+    if all([device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
+        dispatcher.send_markdown(
+            f"Standby {dispatcher.user_mention()}, I'm starting the packet capture on device {device}.",
+            ephemeral=True,
+        )
+
     # ---------------------------------------------------
     # Get device to execute against
     # ---------------------------------------------------
     pano = connect_panorama()
+
     if not device:
         return prompt_for_device(dispatcher, "panorama capture-traffic", pano)
 
@@ -480,9 +488,9 @@ def capture_traffic(
         {
             "type": "select",
             "label": "IP Protocol",
-            "choices": [("TCP", "6"), ("UDP", "17"), ("ANY", "any")],
+            "choices": [("ANY", "any"), ("TCP", "6"), ("UDP", "17")],
             "confirm": False,
-            "default": ("TCP", "6"),
+            "default": ("ANY", "any"),
         },
         {
             "type": "select",
@@ -572,8 +580,12 @@ def capture_traffic(
     # Convert IPAddress model type to string
     device_ip = str(device_ip)
 
-    dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
+    # Name of capture file
+    capture_filename = f"{device}-packet-capture.pcap"
+
+    # Begin packet capture on device
     start_packet_capture(
+        capture_filename,
         device_ip,
         {
             "snet": snet.split("/")[0],
@@ -587,14 +599,16 @@ def capture_traffic(
             "capture_seconds": capture_seconds,
         },
     )
+
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
             "capture-traffic",
-            [("Device", device), ("Source Network", snet), ("Destination Network"), ("Destination Port", dport), ("Interface Name", intf_name), ("IP Protocol", ip_proto), ("Stage", stage), ("Capture Seconds", capture_seconds)],
+            [("Device", device), ("Source Network", snet), ("Destination Network", dnet), ("Destination Port", dport), ("Interface Name", intf_name), ("IP Protocol", ip_proto), ("Stage", stage), ("Capture Seconds", capture_seconds)],
             "PCAP file",
             palo_logo(dispatcher),
         ),
     ]
+
     dispatcher.send_blocks(blocks)
-    return dispatcher.send_image("captured.pcap")
+    return dispatcher.send_image(capture_filename)

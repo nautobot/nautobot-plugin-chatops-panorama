@@ -126,10 +126,11 @@ def get_devices(connection: Panorama) -> dict:
     return _device_dict
 
 
-def start_packet_capture(ip_address: str, filters: dict):
+def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
     """Starts or stops packet capturing on the Managed FW.
 
     Args:
+        capture_filename (str): Name of packet capture file
         ip_address (str): IP address of the device
         filters (dict): Commands to pass to the device for packet capturing
     """
@@ -172,13 +173,14 @@ def start_packet_capture(ip_address: str, filters: dict):
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
     ssh.disconnect()
-    _get_pcap(ip_address)
+    _get_pcap(capture_filename, ip_address)
 
 
-def _get_pcap(ip_address: str):
+def _get_pcap(capture_filename: str, ip_address: str):
     """Downloads PCAP file from PANOS device.
 
     Args:
+        capture_filename (str): Name of packet capture file
         ip_address (str): IP address of the device
     """
     url = f"https://{ip_address}/api/"
@@ -187,7 +189,7 @@ def _get_pcap(ip_address: str):
 
     respone = requests.get(url, params=params, verify=False)  # nosec
 
-    with open("captured.pcap", "wb") as pcap_file:
+    with open(capture_filename, "wb") as pcap_file:
         pcap_file.write(respone.content)
 
 def parse_all_rule_names(xml_rules: str) -> list:

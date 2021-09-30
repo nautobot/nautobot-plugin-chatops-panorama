@@ -180,7 +180,7 @@ def validate_rule_exists(
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "validate_rule_exists",
+                "validate-rule-exists",
                 [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol.upper()), ("Destination Port", dst_port)],
                 "validated rule",
                 palo_logo(dispatcher),
@@ -193,7 +193,7 @@ def validate_rule_exists(
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "validate_rule_exists",
+                "validate-rule-exists",
                 [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol.upper()), ("Destination Port", dst_port)],
                 "rule validation",
                 palo_logo(dispatcher),
@@ -225,7 +225,7 @@ def get_version(dispatcher):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "get_version",
+            "get-version",
             [],
             "Panorama version",
             palo_logo(dispatcher),
@@ -262,7 +262,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "upload_software",
+                "upload-software",
                 [("Device", device), ("Version", version)],
                 "information on that upload software task",
                 palo_logo(dispatcher),
@@ -274,7 +274,7 @@ def upload_software(dispatcher, device, version, **kwargs):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "upload_software",
+            "upload-software",
             [("Device", device), ("Version", version)],
             "information on that upload software task",
             palo_logo(dispatcher),
@@ -311,7 +311,7 @@ def install_software(dispatcher, device, version, **kwargs):
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "install_software",
+                "install-software",
                 [("Device", device), ("Version", version)],
                 "information on that install software task",
                 palo_logo(dispatcher),
@@ -323,7 +323,7 @@ def install_software(dispatcher, device, version, **kwargs):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "install_software",
+            "install-software",
             [("Device", device), ("Version", version)],
             "information on that install software task",
             palo_logo(dispatcher),
@@ -369,7 +369,7 @@ def get_device_rules(dispatcher, device, **kwargs):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "get_device_rules",
+            "get-device-rules",
             [("Device", device)],
             f"rules for device {device}",
             palo_logo(dispatcher),
@@ -586,7 +586,7 @@ def capture_traffic(
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "capture_traffic",
+            "capture-traffic",
             [("Device", device), ("Source Network", snet), ("Destination Network"), ("Destination Port", dport), ("Interface Name", intf_name), ("IP Protocol", ip_proto), ("Stage", stage), ("Capture Seconds", capture_seconds)],
             "PCAP file",
             palo_logo(dispatcher),

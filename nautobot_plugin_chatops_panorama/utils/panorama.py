@@ -201,9 +201,16 @@ def parse_all_rule_names(xml_rules: str) -> list:
     return rule_names
 
 
-def get_all_rules(device=None):
-    """Get all currently configured rules."""
-    pano = connect_panorama()
+def get_all_rules(device: str, pano: Panorama) -> list:
+    """Get all currently configured rules.
+
+    Args:
+        device (str): Name of firewall device in Panorama
+        pano (Panorama): Panorama connection
+
+    Returns:
+        list: List of rules
+    """    
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     device = pano.add(devices[0])
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama

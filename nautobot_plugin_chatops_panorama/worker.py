@@ -160,7 +160,7 @@ def validate_rule_exists(
 
     if matching_rules:
         all_rules = list()
-        for rule in get_all_rules(device):
+        for rule in get_all_rules(device, pano):
             if rule.name == matching_rules[0]["name"]:
                 rule_list = list()
                 rule_list.append(rule.name)
@@ -346,7 +346,7 @@ def get_device_rules(dispatcher, device, **kwargs):
         ephemeral=True,
     )
 
-    rules = get_all_rules(device)
+    rules = get_all_rules(device, pano)
 
     all_rules = list()
     for rule in rules:
@@ -384,16 +384,19 @@ def get_device_rules(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Get list of firewall rules with details."""
-    pano = connect_panorama()
-    if not device:
+
+    if device:
+        dispatcher.send_markdown(
+            f"Standby {dispatcher.user_mention()}, I'm creating the CSV file for the rules on device {device}.",
+            ephemeral=True,
+        )
+    else:
+        pano = connect_panorama()
         return prompt_for_device(dispatcher, "panorama export-device-rules", pano)
     logger.debug("Running /panorama export-device-rules, device=%s", device)
 
-    dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm creating the CSV file for the rules on device {device}.",
-        ephemeral=True,
-    )
-    rules = get_all_rules(device)
+    pano = connect_panorama()
+    rules = get_all_rules(device, pano)
 
     file_name = "device_rules.csv"
 

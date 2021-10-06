@@ -6,10 +6,10 @@ import defusedxml.ElementTree as ET
 import requests
 
 from netmiko import ConnectHandler
-from panos.errors import PanObjectMissing
+from panos.errors import PanObjectMissing, PanDeviceXapiError
 from panos.firewall import Firewall
 from panos.objects import AddressObject, ServiceObject
-from panos.panorama import Panorama
+from panos.panorama import Panorama, DeviceGroup
 from panos.policies import Rulebase, SecurityRule
 from requests.exceptions import RequestException
 
@@ -190,6 +190,7 @@ def _get_pcap(ip_address: str):
     with open("captured.pcap", "wb") as pcap_file:
         pcap_file.write(respone.content)
 
+
 def parse_all_rule_names(xml_rules: str) -> list:
     """Parse all rules names."""
     rule_names = []
@@ -237,3 +238,47 @@ def split_rules(rules, title=""):
 
         output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{tozone[:-1]},{fromzone[:-1]}\n"
     return output
+
+
+def register_device(serials, group) -> str:
+    """Registers device with Panorama to a new or existing device group by its serial number.
+
+    Args:
+        serials (str): Comma separated device serial numbers
+        group (str): Existing group name on Panorama
+
+    Returns:
+        (str): Returns message about the performed job.
+    """
+    pano_obj = connect_panorama()
+    for serial in serials.split(","):
+        fw = Firewall(serial=serial)
+        pano_obj.add(fw).create()
+
+        if group != "None":
+            groups = pano_obj.refresh_devices()
+
+            group_present = False
+            for group_obj in groups:
+                if group == group_obj.name:
+                    group_present = True
+                    group = group_obj
+
+            # Create DeviceGroup in Panorama if does not exist
+            if not group_present:
+                group = DeviceGroup(group)
+                pano_obj.add(group).create()
+
+            for device_obj in group.children:
+                if serial == device_obj.serial:
+                    return f"Device with serial number `{serial}` is already registered with `{group.name}`."
+
+            try:
+                group.add(fw).create()
+                pano_obj.commit()
+                return f"Device with serial number '{serial}' was successfully registered with `{group.name}`."
+            except PanDeviceXapiError:
+                return f"Something went wrong while adding device to the `{group.name}` group. It is possible that this device is already registered with a different group."
+        else:
+            pano_obj.commit()
+            return f"Device with serial number `{serial}` was successfully registered with Panorama."

@@ -35,7 +35,8 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     parse_all_rule_names,
     start_packet_capture,
     get_all_rules,
-    split_rules
+    split_rules,
+    register_device
 )
 
 
@@ -541,3 +542,23 @@ def capture_traffic(dispatcher, device_id, snet, dnet, dport, intf_name, ip_prot
     dispatcher.send_markdown("Here is the PCAP file that your requested!")
     return dispatcher.send_image('captured.pcap')
 
+
+@subcommand_of("panorama")
+def register_devices(dispatcher, serials, group):
+    """Register device(s) with Panorama and add to particular group if needed."""
+    dialog_list = [
+        {
+            "type": "text",
+            "label": "Comma Separated Serial Numbers"
+        },
+        {
+            "type": "text",
+            "label": "Group Name",
+            "default": "None",
+        },
+    ]
+    if not all([serials, group]):
+        dispatcher.multi_input_dialog("panorama", "register-devices", "Register Devices", dialog_list)
+        return CommandStatusChoices.STATUS_SUCCEEDED
+    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, give me a minute to add {serials} serial numbers to Panorama.")
+    dispatcher.send_markdown(register_device(serials, group))

@@ -91,7 +91,7 @@ def panorama(subcommand, **kwargs):
 @subcommand_of("panorama")
 def validate_rule_exists(
     dispatcher, device, src_ip, dst_ip, protocol, dst_port
-):  # pylint:disable=too-many-arguments,too-many-locals
+):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches
     """Verify that the rule exists within a device, via Panorama."""
     dialog_list = [
         {
@@ -449,7 +449,7 @@ def capture_traffic(
     stage: str,
     capture_seconds: str,
     **kwargs,
-):  # pylint:disable=too-many-arguments,too-many-return-statements
+):  # pylint:disable=too-many-arguments,too-many-return-statements,too-many-locals,too-many-branches
     """Capture IP traffic on PANOS Device.
 
     Args:
@@ -570,7 +570,7 @@ def capture_traffic(
         # Port may be a string, which is still valid
         if dport.lower() == "any":
             dport = None
-    except (TypeError, ValueError):
+    except TypeError:
         dispatcher.send_warning(
             f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
         )

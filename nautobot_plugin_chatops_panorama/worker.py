@@ -162,10 +162,10 @@ def validate_rule_exists(
     matching_rules = get_rule_match(five_tuple=data, serial=serial)
 
     if matching_rules:
-        all_rules = list()
+        all_rules = []
         for rule in get_all_rules(device, pano):
             if rule.name == matching_rules[0]["name"]:
-                rule_list = list()
+                rule_list = []
                 rule_list.append(rule.name)
                 sources = ""
                 for src in rule.source:
@@ -371,9 +371,9 @@ def get_device_rules(dispatcher, device, **kwargs):
 
     rules = get_all_rules(device, pano)
 
-    all_rules = list()
+    all_rules = []
     for rule in rules:
-        rule_list = list()
+        rule_list = []
         rule_list.append(rule.name)
         sources = ""
         for src in rule.source:
@@ -423,7 +423,7 @@ def export_device_rules(dispatcher, device, **kwargs):
     file_name = f"{device}-device-rules.csv"
 
     output = split_rules(rules)
-    with open(file_name, "w") as file:
+    with open(file_name, "w") as file:  # pylint: disable=unspecified-encoding
         file.write(output)
 
     dispatcher.send_image(file_name)

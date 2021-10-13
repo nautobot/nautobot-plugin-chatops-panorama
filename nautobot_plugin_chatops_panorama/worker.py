@@ -231,7 +231,6 @@ def validate_rule_exists(
 @subcommand_of("panorama")
 def get_version(dispatcher):
     """Obtain software version information for Panorama."""
-
     dispatcher.send_markdown(
         f"Standby {dispatcher.user_mention()}, I'm getting Panorama's version for you.",
         ephemeral=True,
@@ -408,7 +407,6 @@ def get_device_rules(dispatcher, device, **kwargs):
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
     """Generate list of firewall rules with details in CSV format."""
-
     if device:
         dispatcher.send_markdown(
             f"Standby {dispatcher.user_mention()}, I'm creating the CSV file for the rules on device {device}.",

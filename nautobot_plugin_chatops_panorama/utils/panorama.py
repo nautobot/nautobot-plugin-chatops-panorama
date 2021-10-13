@@ -192,6 +192,7 @@ def _get_pcap(capture_filename: str, ip_address: str):
     with open(capture_filename, "wb") as pcap_file:
         pcap_file.write(respone.content)
 
+
 def parse_all_rule_names(xml_rules: str) -> list:
     """Parse all rules names."""
     rule_names = []
@@ -212,7 +213,7 @@ def get_all_rules(device: str, pano: Panorama) -> list:
 
     Returns:
         list: List of rules
-    """    
+    """
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     device = pano.add(devices[0])
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama

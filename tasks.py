@@ -48,7 +48,7 @@ namespace.configure(
                 "docker-compose.base.yml",
                 "docker-compose.dev.yml",
                 "docker-compose.celery.yml",
-                "docker-compose.mattermost.yml"
+                "docker-compose.mattermost.yml",
             ],
         }
     }

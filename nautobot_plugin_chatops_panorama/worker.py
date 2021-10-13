@@ -7,11 +7,9 @@ from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
-from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
-from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 

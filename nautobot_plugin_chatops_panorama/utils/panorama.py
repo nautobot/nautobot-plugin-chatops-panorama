@@ -6,9 +6,7 @@ import defusedxml.ElementTree as ET
 import requests
 
 from netmiko import ConnectHandler
-from panos.errors import PanObjectMissing
 from panos.firewall import Firewall
-from panos.objects import AddressObject, ServiceObject
 from panos.panorama import Panorama
 from panos.policies import Rulebase, SecurityRule
 from requests.exceptions import RequestException

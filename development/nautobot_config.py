@@ -7,10 +7,9 @@
 import os
 import sys
 
-from distutils.util import strtobool
 from django.core.exceptions import ImproperlyConfigured
 from nautobot.core import settings
-from nautobot.core.settings_funcs import is_truthy, parse_redis_connection
+from nautobot.core.settings_funcs import is_truthy
 
 # Enforce required configuration parameters
 for key in [

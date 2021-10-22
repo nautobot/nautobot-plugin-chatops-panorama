@@ -7,11 +7,9 @@ from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
 from django_rq import job
 from nautobot.dcim.models import Device, Interface
-from nautobot.ipam.models import Service
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
-from panos.panorama import DeviceGroup
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 
@@ -35,6 +33,7 @@ logger = logging.getLogger("rq.worker")
 def palo_logo(dispatcher):
     """Construct an image_element containing the locally hosted Palo Alto Networks logo."""
     return dispatcher.image_element(dispatcher.static_url(PALO_LOGO_PATH), alt_text=PALO_LOGO_ALT)
+
 
 def prompt_for_panos_device_group(dispatcher, command, connection):
     """Prompt user for panos device group to check for groups from."""
@@ -92,7 +91,7 @@ def panorama(subcommand, **kwargs):
 @subcommand_of("panorama")
 def validate_rule_exists(
     dispatcher, device, src_ip, dst_ip, protocol, dst_port
-):  # pylint:disable=too-many-arguments,too-many-locals
+):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches
     """Verify that the rule exists within a device, via Panorama."""
     dialog_list = [
         {
@@ -116,6 +115,12 @@ def validate_rule_exists(
         },
     ]
 
+    if all([device, src_ip, dst_ip, protocol, dst_port]):
+        dispatcher.send_markdown(
+            f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now. ",
+            ephemeral=True,
+        )
+
     pano = connect_panorama()
     if not device:
         return prompt_for_device(dispatcher, "panorama validate-rule-exists", pano)
@@ -138,9 +143,7 @@ def validate_rule_exists(
         return CommandStatusChoices.STATUS_ERRORED
 
     if not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
-        dispatcher.send_warning(
-            f"Destination IP {dst_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
-        )
+        dispatcher.send_warning()
         dispatcher.multi_input_dialog(
             "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
         )
@@ -150,19 +153,19 @@ def validate_rule_exists(
     if not serial:
         return dispatcher.send_warning(f"The device {device} was not found.")
 
-    dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm checking the firewall rules now. ",
-        ephemeral=True,
-    )
-
-    data = {"src_ip": src_ip, "dst_ip": dst_ip, "protocol": PROTO_NAME_TO_NUM.get(protocol.upper()), "dst_port": dst_port}
+    data = {
+        "src_ip": src_ip,
+        "dst_ip": dst_ip,
+        "protocol": PROTO_NAME_TO_NUM.get(protocol.upper()),
+        "dst_port": dst_port,
+    }
     matching_rules = get_rule_match(five_tuple=data, serial=serial)
 
     if matching_rules:
-        all_rules = list()
-        for rule in get_all_rules(device):
+        all_rules = []
+        for rule in get_all_rules(device, pano):
             if rule.name == matching_rules[0]["name"]:
-                rule_list = list()
+                rule_list = []
                 rule_list.append(rule.name)
                 sources = ""
                 for src in rule.source:
@@ -181,8 +184,14 @@ def validate_rule_exists(
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol.upper()), ("Destination Port", dst_port)],
+                "validate-rule-exists",
+                [
+                    ("Device", device),
+                    ("Source IP", src_ip),
+                    ("Destination IP", dst_ip),
+                    ("Protocol", protocol.upper()),
+                    ("Destination Port", dst_port),
+                ],
                 "validated rule",
                 palo_logo(dispatcher),
             ),
@@ -194,8 +203,14 @@ def validate_rule_exists(
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "validate_rule_exists",
-                [("Device", device), ("Source IP", src_ip), ("Destination IP", dst_ip), ("Protocol", protocol.upper()), ("Destination Port", dst_port)],
+                "validate-rule-exists",
+                [
+                    ("Device", device),
+                    ("Source IP", src_ip),
+                    ("Destination IP", dst_ip),
+                    ("Protocol", protocol.upper()),
+                    ("Destination Port", dst_port),
+                ],
                 "rule validation",
                 palo_logo(dispatcher),
             ),
@@ -216,23 +231,23 @@ def validate_rule_exists(
 @subcommand_of("panorama")
 def get_version(dispatcher):
     """Obtain software version information for Panorama."""
-
     dispatcher.send_markdown(
-    f"Standby {dispatcher.user_mention()}, I'm getting Panorama's version for you.",
-    ephemeral=True,
-)
+        f"Standby {dispatcher.user_mention()}, I'm getting Panorama's version for you.",
+        ephemeral=True,
+    )
     pano = connect_panorama()
+    version = pano.refresh_system_info().version
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "get_version",
+            "get-version",
             [],
             "Panorama version",
             palo_logo(dispatcher),
         )
     ]
     dispatcher.send_blocks(blocks)
-    dispatcher.send_markdown(f"The version of Panorama is {pano.refresh_system_info().version}.")
+    dispatcher.send_markdown(f"The version of Panorama is {version}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -249,10 +264,14 @@ def upload_software(dispatcher, device, version, **kwargs):
         return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano)
 
     if "menu_offset" in version:
-        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r'\d+', version)[0])
+        return prompt_for_versions(
+            dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
+        )
 
     devs = get_devices(connection=pano)
-    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True)
+    dispatcher.send_markdown(
+        f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True
+    )
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
     dispatcher.send_markdown("Starting download now...", ephemeral=True)
@@ -262,7 +281,7 @@ def upload_software(dispatcher, device, version, **kwargs):
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "upload_software",
+                "upload-software",
                 [("Device", device), ("Version", version)],
                 "information on that upload software task",
                 palo_logo(dispatcher),
@@ -274,7 +293,7 @@ def upload_software(dispatcher, device, version, **kwargs):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "upload_software",
+            "upload-software",
             [("Device", device), ("Version", version)],
             "information on that upload software task",
             palo_logo(dispatcher),
@@ -299,10 +318,14 @@ def install_software(dispatcher, device, version, **kwargs):
         return False
 
     if "menu_offset" in version:
-        return prompt_for_versions(dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r'\d+', version)[0])
+        return prompt_for_versions(
+            dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
+        )
 
     devs = get_devices(connection=pano)
-    dispatcher.send_markdown(f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True)
+    dispatcher.send_markdown(
+        f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True
+    )
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
     try:
@@ -311,7 +334,7 @@ def install_software(dispatcher, device, version, **kwargs):
         blocks = [
             *dispatcher.command_response_header(
                 "panorama",
-                "install_software",
+                "install-software",
                 [("Device", device), ("Version", version)],
                 "information on that install software task",
                 palo_logo(dispatcher),
@@ -323,7 +346,7 @@ def install_software(dispatcher, device, version, **kwargs):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "install_software",
+            "install-software",
             [("Device", device), ("Version", version)],
             "information on that install software task",
             palo_logo(dispatcher),
@@ -332,6 +355,7 @@ def install_software(dispatcher, device, version, **kwargs):
     dispatcher.send_blocks(blocks)
     dispatcher.send_markdown(f"As requested, {version} has been installed on {device}.")
     return CommandStatusChoices.STATUS_SUCCEEDED
+
 
 @subcommand_of("panorama")
 def get_device_rules(dispatcher, device, **kwargs):
@@ -345,11 +369,11 @@ def get_device_rules(dispatcher, device, **kwargs):
         ephemeral=True,
     )
 
-    rules = get_all_rules(device)
+    rules = get_all_rules(device, pano)
 
-    all_rules = list()
+    all_rules = []
     for rule in rules:
-        rule_list = list()
+        rule_list = []
         rule_list.append(rule.name)
         sources = ""
         for src in rule.source:
@@ -369,7 +393,7 @@ def get_device_rules(dispatcher, device, **kwargs):
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "get_device_rules",
+            "get-device-rules",
             [("Device", device)],
             f"rules for device {device}",
             palo_logo(dispatcher),
@@ -382,22 +406,24 @@ def get_device_rules(dispatcher, device, **kwargs):
 
 @subcommand_of("panorama")
 def export_device_rules(dispatcher, device, **kwargs):
-    """Get list of firewall rules with details."""
-    pano = connect_panorama()
-    if not device:
+    """Generate list of firewall rules with details in CSV format."""
+    if device:
+        dispatcher.send_markdown(
+            f"Standby {dispatcher.user_mention()}, I'm creating the CSV file for the rules on device {device}.",
+            ephemeral=True,
+        )
+    else:
+        pano = connect_panorama()
         return prompt_for_device(dispatcher, "panorama export-device-rules", pano)
     logger.debug("Running /panorama export-device-rules, device=%s", device)
 
-    dispatcher.send_markdown(
-        f"Standby {dispatcher.user_mention()}, I'm creating the CSV file for the rules on device {device}.",
-        ephemeral=True,
-    )
-    rules = get_all_rules(device)
+    pano = connect_panorama()
+    rules = get_all_rules(device, pano)
 
-    file_name = "device_rules.csv"
+    file_name = f"{device}-device-rules.csv"
 
     output = split_rules(rules)
-    with open(file_name, "w") as file:
+    with open(file_name, "w") as file:  # pylint: disable=unspecified-encoding
         file.write(output)
 
     dispatcher.send_image(file_name)
@@ -423,7 +449,7 @@ def capture_traffic(
     stage: str,
     capture_seconds: str,
     **kwargs,
-):  # pylint:disable=too-many-arguments,too-many-return-statements
+):  # pylint:disable=too-many-arguments,too-many-return-statements,too-many-locals,too-many-branches
     """Capture IP traffic on PANOS Device.
 
     Args:
@@ -440,10 +466,17 @@ def capture_traffic(
     """
     logger.info("Starting packet capture")
 
+    if all([device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
+        dispatcher.send_markdown(
+            f"Standby {dispatcher.user_mention()}, I'm starting the packet capture on device {device}.",
+            ephemeral=True,
+        )
+
     # ---------------------------------------------------
     # Get device to execute against
     # ---------------------------------------------------
     pano = connect_panorama()
+
     if not device:
         return prompt_for_device(dispatcher, "panorama capture-traffic", pano)
 
@@ -476,9 +509,9 @@ def capture_traffic(
         {
             "type": "select",
             "label": "IP Protocol",
-            "choices": [("TCP", "6"), ("UDP", "17"), ("ANY", "any")],
+            "choices": [("ANY", "any"), ("TCP", "6"), ("UDP", "17")],
             "confirm": False,
-            "default": ("TCP", "6"),
+            "default": ("ANY", "any"),
         },
         {
             "type": "select",
@@ -537,7 +570,7 @@ def capture_traffic(
         # Port may be a string, which is still valid
         if dport.lower() == "any":
             dport = None
-    except (TypeError, ValueError):
+    except TypeError:
         dispatcher.send_warning(
             f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
         )
@@ -568,8 +601,12 @@ def capture_traffic(
     # Convert IPAddress model type to string
     device_ip = str(device_ip)
 
-    dispatcher.send_markdown(f"Starting {capture_seconds} second packet capture")
+    # Name of capture file
+    capture_filename = f"{device}-packet-capture.pcap"
+
+    # Begin packet capture on device
     start_packet_capture(
+        capture_filename,
         device_ip,
         {
             "snet": snet.split("/")[0],
@@ -583,14 +620,25 @@ def capture_traffic(
             "capture_seconds": capture_seconds,
         },
     )
+
     blocks = [
         *dispatcher.command_response_header(
             "panorama",
-            "capture_traffic",
-            [("Device", device), ("Source Network", snet), ("Destination Network"), ("Destination Port", dport), ("Interface Name", intf_name), ("IP Protocol", ip_proto), ("Stage", stage), ("Capture Seconds", capture_seconds)],
+            "capture-traffic",
+            [
+                ("Device", device),
+                ("Source Network", snet),
+                ("Destination Network", dnet),
+                ("Destination Port", dport),
+                ("Interface Name", intf_name),
+                ("IP Protocol", ip_proto),
+                ("Stage", stage),
+                ("Capture Seconds", capture_seconds),
+            ],
             "PCAP file",
             palo_logo(dispatcher),
         ),
     ]
+
     dispatcher.send_blocks(blocks)
-    return dispatcher.send_image("captured.pcap")
+    return dispatcher.send_image(capture_filename)

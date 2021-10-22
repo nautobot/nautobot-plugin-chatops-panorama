@@ -6,9 +6,7 @@ import defusedxml.ElementTree as ET
 import requests
 
 from netmiko import ConnectHandler
-from panos.errors import PanObjectMissing
 from panos.firewall import Firewall
-from panos.objects import AddressObject, ServiceObject
 from panos.panorama import Panorama
 from panos.policies import Rulebase, SecurityRule
 from requests.exceptions import RequestException
@@ -126,10 +124,11 @@ def get_devices(connection: Panorama) -> dict:
     return _device_dict
 
 
-def start_packet_capture(ip_address: str, filters: dict):
+def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
     """Starts or stops packet capturing on the Managed FW.
 
     Args:
+        capture_filename (str): Name of packet capture file
         ip_address (str): IP address of the device
         filters (dict): Commands to pass to the device for packet capturing
     """
@@ -172,13 +171,14 @@ def start_packet_capture(ip_address: str, filters: dict):
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
     ssh.disconnect()
-    _get_pcap(ip_address)
+    _get_pcap(capture_filename, ip_address)
 
 
-def _get_pcap(ip_address: str):
+def _get_pcap(capture_filename: str, ip_address: str):
     """Downloads PCAP file from PANOS device.
 
     Args:
+        capture_filename (str): Name of packet capture file
         ip_address (str): IP address of the device
     """
     url = f"https://{ip_address}/api/"
@@ -187,8 +187,9 @@ def _get_pcap(ip_address: str):
 
     respone = requests.get(url, params=params, verify=False)  # nosec
 
-    with open("captured.pcap", "wb") as pcap_file:
+    with open(capture_filename, "wb") as pcap_file:
         pcap_file.write(respone.content)
+
 
 def parse_all_rule_names(xml_rules: str) -> list:
     """Parse all rules names."""
@@ -201,9 +202,16 @@ def parse_all_rule_names(xml_rules: str) -> list:
     return rule_names
 
 
-def get_all_rules(device=None):
-    """Get all currently configured rules."""
-    pano = connect_panorama()
+def get_all_rules(device: str, pano: Panorama) -> list:
+    """Get all currently configured rules.
+
+    Args:
+        device (str): Name of firewall device in Panorama
+        pano (Panorama): Panorama connection
+
+    Returns:
+        list: List of rules
+    """
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     device = pano.add(devices[0])
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama

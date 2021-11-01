@@ -4,7 +4,7 @@ A plugin for [Nautobot](https://github.com/nautobot/nautobot).
 
 ## Prerequisites
 
-This plugin requires the [Nautobot ChatOps Plugin](https://github.com/nautobot/nautobot-plugin-chatops) to be installed and configured before using. You can find detailed instructions for setting this up and configuring it [here](https://github.com/nautobot/nautobot-plugin-chatops/blob/develop/README.md).
+This plugin requires the [Nautobot ChatOps Plugin](https://github.com/nautobot/nautobot-plugin-chatops) to be installed and configured before using. You can find detailed setup and configuration instructions [here](https://github.com/nautobot/nautobot-plugin-chatops/blob/develop/README.md).
 
 ## Installation
 
@@ -37,19 +37,23 @@ You will need to set the following environment variables for your Nautobot insta
 * PANORAMA_USER - A user account with API access to Panorama.
 * PANORAMA_PASSWORD - The password that goes with the above user account.
 
+## Access Control
+
+Just like with the regular `/nautobot` command from the base Nautobot ChatOps plugin, the `/panorama` command supports access control through the Access Grants menu in Nautobot. See section [Grant Access to the Chatbot](https://github.com/nautobot/nautobot-plugin-chatops/blob/develop/docs/chat_setup/chat_setup.md#grant-access-to-the-chatbot) in the installation guide for the base Nautobot ChatOps plugin for setting this up.
+
 ## Usage
 
 The supported commands are listed below. We welcome any new command or feature requests by submitting an issue or PR.
 
 | /panorama Command     | Description                           |
 | --------------------- | ------------------------------------- |
-| validate-rule-exists  | Verify that a specific ACL rule exists within a device, via Panorama. |
-| get-version           | Obtain software version information for Panorama. |
-| upload-software       | Upload software to specified Palo Alto device. |
-| install-software      | Install software to specified Palo Alto device. |
-| get-device-rules      | Return a list of all firewall rules on a given device with details. |
-| export-device-rules   | Generate a downloadable list of firewall rules with details in CSV format. |
 | capture-traffic       | Run a packet capture on PANOS Device for specified IP traffic. |
+| export-device-rules   | Generate a downloadable list of firewall rules with details in CSV format. |
+| get-device-rules      | Return a list of all firewall rules on a given device with details. |
+| get-version           | Obtain software version information for Panorama. |
+| install-software      | Install software to specified Palo Alto device. |
+| upload-software       | Upload software to specified Palo Alto device. |
+| validate-rule-exists  | Verify that a specific ACL rule exists within a device, via Panorama. |
 
 ## Questions
 
@@ -59,3 +63,13 @@ Sign up [here](http://slack.networktocode.com/)
 ## Screenshots
 
 ![Help](docs/img/screenshot1.png)
+
+![Validate Rule Exists Success](docs/img/screenshot2.png)
+
+![Validate Rule Exists Failure](docs/img/screenshot3.png)
+
+![Upload Software](docs/img/screenshot4.png)
+
+![Capture Traffic Filter](docs/img/screenshot5.png)
+
+![Capture Traffic](docs/img/screenshot6.png)

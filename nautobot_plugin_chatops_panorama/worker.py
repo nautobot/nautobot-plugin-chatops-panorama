@@ -629,9 +629,7 @@ def capture_traffic(
         *dispatcher.command_response_header(
             "panorama",
             "capture-traffic",
-            [
-                ("Details below:", " ")
-            ],
+            [("Details below:", " ")],
             "PCAP file",
             palo_logo(dispatcher),
         ),

@@ -212,7 +212,7 @@ def get_all_rules(device: str, pano: Panorama) -> list:
     Returns:
         list: List of rules
     """
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+    devices = pano.refresh_devices(include_device_groups=False)
     device = pano.add(devices[0])
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
     # if not device:

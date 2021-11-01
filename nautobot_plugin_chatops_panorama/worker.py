@@ -599,7 +599,7 @@ def capture_traffic(
     try:
         # TODO: This gathers the internal IP address that Panorama sees. However if the firewall is accessible to Nautobot via a different IP address (e.g. external), this fails.
         #       Add support for multiple possible IP addresses here
-        device_ip = devices[device]['ip_address']
+        device_ip = devices[device]["ip_address"]
         logger.info("Attempting packet capture to device %s via IP address %s.", device, device_ip)
     except KeyError:
         msg = f"No IP address found assigned to device {device} in Panorama."
@@ -637,9 +637,7 @@ def capture_traffic(
         *dispatcher.command_response_header(
             "panorama",
             "capture-traffic",
-            [
-                ("Details below:", " ")
-            ],
+            [("Details below:", " ")],
             "PCAP file",
             palo_logo(dispatcher),
         ),

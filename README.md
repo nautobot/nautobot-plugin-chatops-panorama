@@ -58,4 +58,4 @@ Sign up [here](http://slack.networktocode.com/)
 
 ## Screenshots
 
-TODO
+![Help](docs/img/screenshot1.png)

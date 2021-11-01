@@ -2,6 +2,7 @@
 import logging
 import os
 import re
+from copy import deepcopy
 from ipaddress import ip_network
 from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
@@ -562,23 +563,26 @@ def capture_traffic(
         )
         return CommandStatusChoices.STATUS_FAILED
 
+    dport_init_val = deepcopy(dport)
     try:
         dport = int(dport)
         if dport < 1 or dport > 65535:
-            raise ValueError
+            raise TypeError
     except ValueError:
         # Port may be a string, which is still valid
         if dport.lower() == "any":
             dport = None
-    except TypeError:
+    except (AttributeError, TypeError):
         dispatcher.send_warning(
             f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
         )
         return CommandStatusChoices.STATUS_FAILED
 
+    ip_proto_init_val = deepcopy(ip_proto)
     if ip_proto == "any":
         ip_proto = None
 
+    capture_seconds_init_val = deepcopy(capture_seconds)
     try:
         capture_seconds = int(capture_seconds)
         if capture_seconds > 120 or capture_seconds < 1:
@@ -626,14 +630,7 @@ def capture_traffic(
             "panorama",
             "capture-traffic",
             [
-                ("Device", device),
-                ("Source Network", snet),
-                ("Destination Network", dnet),
-                ("Destination Port", dport),
-                ("Interface Name", intf_name),
-                ("IP Protocol", ip_proto),
-                ("Stage", stage),
-                ("Capture Seconds", capture_seconds),
+                ("Details below:", " ")
             ],
             "PCAP file",
             palo_logo(dispatcher),
@@ -641,4 +638,16 @@ def capture_traffic(
     ]
 
     dispatcher.send_blocks(blocks)
+
+    all_values = [
+        ["Device", device],
+        ["Source Network", snet],
+        ["Destination Network", dnet],
+        ["Destination Port", dport_init_val],
+        ["Interface Name", intf_name],
+        ["IP Protocol", ip_proto_init_val],
+        ["Stage", stage],
+        ["Capture Seconds", capture_seconds_init_val],
+    ]
+    dispatcher.send_large_table(("Object", "Value"), all_values)
     return dispatcher.send_image(capture_filename)

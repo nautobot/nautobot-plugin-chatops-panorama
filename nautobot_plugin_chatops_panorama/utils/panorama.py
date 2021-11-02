@@ -141,7 +141,8 @@ def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
 
     command = f"debug dataplane packet-diag set filter index 1 match ingress-interface {filters['intf_name']}"
 
-    if filters["dport"]:
+    # Ignore this command if not filtering by port (when user sets port to 'any')
+    if filters["dport"] and filters["dport"] != "any":
         command += f" destination-port {filters['dport']}"
 
     if filters["dnet"] != "0.0.0.0":  # nosec
@@ -154,7 +155,8 @@ def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
         if filters["scidr"] != "0":
             command += f" source-netmask {filters['scidr']}"
 
-    if filters["ip_proto"]:
+    # Ignore this command if not filtering by port (when user sets protocol to 'any')
+    if filters["ip_proto"] and filters["ip_proto"] != "any":
         command += f" protocol {filters['ip_proto']}"
 
     ssh = ConnectHandler(**dev_connect)

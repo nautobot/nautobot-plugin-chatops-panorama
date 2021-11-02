@@ -563,28 +563,24 @@ def capture_traffic(
         return CommandStatusChoices.STATUS_FAILED
 
     try:
-        dport = int(dport)
-        if dport < 1 or dport > 65535:
-            raise ValueError
+        dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
+        if not 1 <= int(dport) <= 65535:
+            raise TypeError
     except ValueError:
         # Port may be a string, which is still valid
-        if dport.lower() == "any":
-            dport = None
-    except TypeError:
-        dispatcher.send_warning(
-            f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535"
-        )
+        dport = dport.lower()
+        if dport != "any":
+            dispatcher.send_warning(dport_error)
+            return CommandStatusChoices.STATUS_FAILED
+    except (AttributeError, TypeError):
+        dispatcher.send_warning(dport_error)
         return CommandStatusChoices.STATUS_FAILED
 
-    if ip_proto == "any":
-        ip_proto = None
-
     try:
-        capture_seconds = int(capture_seconds)
-        if capture_seconds > 120 or capture_seconds < 1:
+        if not 1 <= int(capture_seconds) <= 120:
             raise ValueError
     except ValueError:
-        dispatcher.send_warning("Capture Seconds must be specified as a number in the range 1-120")
+        dispatcher.send_warning("Capture Seconds must be specified as a number in the range 1-120.")
         return CommandStatusChoices.STATUS_FAILED
 
     # ---------------------------------------------------
@@ -625,20 +621,23 @@ def capture_traffic(
         *dispatcher.command_response_header(
             "panorama",
             "capture-traffic",
-            [
-                ("Device", device),
-                ("Source Network", snet),
-                ("Destination Network", dnet),
-                ("Destination Port", dport),
-                ("Interface Name", intf_name),
-                ("IP Protocol", ip_proto),
-                ("Stage", stage),
-                ("Capture Seconds", capture_seconds),
-            ],
+            [("Details below:", " ")],
             "PCAP file",
             palo_logo(dispatcher),
         ),
     ]
 
     dispatcher.send_blocks(blocks)
+
+    all_values = [
+        ["Device", device],
+        ["Source Network", snet],
+        ["Destination Network", dnet],
+        ["Destination Port", dport],
+        ["Interface Name", intf_name],
+        ["IP Protocol", ip_proto],
+        ["Stage", stage],
+        ["Capture Seconds", capture_seconds],
+    ]
+    dispatcher.send_large_table(("Object", "Value"), all_values)
     return dispatcher.send_image(capture_filename)

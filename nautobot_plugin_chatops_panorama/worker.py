@@ -14,6 +14,11 @@ from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import List, Tuple, Union
+
 from nautobot_plugin_chatops_panorama.constant import ALLOWED_OBJECTS
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
@@ -88,6 +93,40 @@ def notify_user_of_error(dispatcher: object, error_msg: str) -> str:
     logger.error(error_msg)
     dispatcher.send_warning(error_msg)
     return CommandStatusChoices.STATUS_FAILED
+
+
+def capture_packet_str_validation(
+    dispatcher: object,
+    value_to_check: str,
+    valid_values: List[Tuple[str, Union[str, int]]],
+    variable_description: str,
+    not_found_error: str,
+) -> Tuple[str, bool]:
+    """Validates a user string input against list existing of valid values.
+
+    Args:
+        dispatcher (obj): Dispatcher object from Nautobot/Django
+        value_to_check (str): Value to check to see if valid
+        valid_values (list): List of tuples with valid values
+        variable_description (str): Type of variable being checked (e.g. "Interface")
+        not_found_error (str): Error to display to user and log to syslog if value given is invalid
+
+    Returns:
+        tuple: Tuple of string value, and boolean if validation passed
+    """
+    try:
+        valid_item_found = [
+            valid_item for valid_item in valid_values if value_to_check.lower() == valid_item[0].lower()
+        ]
+        if valid_item_found:
+            return valid_item_found[0][1], True
+        else:
+            # User supplied an invalid or unsupported value
+            return notify_user_of_error(dispatcher, not_found_error), False
+    except AttributeError:
+        # User may have supplied an invalid value, or there was an error parsing the value given as a string
+        #   Ideally this should not trigger
+        return notify_user_of_error(dispatcher, f"{variable_description} is invalid."), False
 
 
 @job("default")
@@ -559,18 +598,23 @@ def capture_traffic(
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
-    
+
     # Validate snet
     try:
         ip_network(snet)
     except ValueError:
-        return notify_user_of_error(f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation.")
+        return notify_user_of_error(
+            dispatcher, f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation."
+        )
 
     # Validate dnet
     try:
         ip_network(dnet)
     except ValueError:
-        return notify_user_of_error(f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation.")
+        return notify_user_of_error(
+            dispatcher,
+            f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation.",
+        )
 
     # Validate dport
     try:
@@ -581,59 +625,49 @@ def capture_traffic(
         # Port may be a string, which is still valid
         dport = dport.lower()
         if dport != "any":
-            return notify_user_of_error(dport_error)
+            return notify_user_of_error(dispatcher, dport_error)
     except (AttributeError, TypeError):
-        return notify_user_of_error(dport_error)
+        return notify_user_of_error(dispatcher, dport_error)
 
     # Validate intf_name
-    try:
-        valid_interface_found = [valid_intf for valid_intf in interface_list if intf_name.lower() == valid_intf[0].lower()]
-        if valid_interface_found:
-            # If the user supplied an interface name, this uses the actual one present and ignores case sensitivity
-            intf_name = valid_interface_found[0][1]
-        else:
-            # Interface not found on device
-            return notify_user_of_error(f"Interface {intf_name} was not found on device {device}.")
-    except AttributeError:
-        # User may have supplied an invalid interface name, or there was an error parsing the interfaces supplied by Panorama
-        #   Ideally this should not trigger
-        return notify_user_of_error(f"Interface {intf_name} is invalid.")
-    
+    # If the user supplied an interface name, this uses the actual one present and ignores case sensitivity
+    intf_name, validation_result = capture_packet_str_validation(
+        dispatcher, intf_name, interface_list, "Interface", f"Interface {intf_name} was not found on device {device}."
+    )
+    if not validation_result:
+        return intf_name
+
     # Validate ip_proto
     # We have to validate here and do some conversion in case the user pastes in the full command
-    try:
-        valid_protocol_found = [valid_tuple for valid_tuple in valid_ip_protocols if ip_proto.upper() == valid_tuple[0]]
-        if valid_protocol_found:
-            # Change to value needed for actual command. E.g. 'tcp' should be the protocol number '6'
-            ip_proto = valid_protocol_found[0][1]
-        else:
-            # We currently do not support pasting in protocol integers, only the protocol name (e.g. 'tcp') or 'any'.
-            #   Or the user supplied an unsupported protocol.
-            return notify_user_of_error(f"IP protocol {ip_proto} must be a valid IP protocol `tcp`, `udp`, or the string `any`.")
-    except AttributeError:
-        # User may have supplied an invalid IP protocol, or there was an error parsing the protocol given as a string
-        #   Ideally this should not trigger
-        return notify_user_of_error(f"IP Protocol {ip_proto} is invalid.")
+    # If valid, change to value needed for actual command. E.g. 'tcp' should be the protocol number '6'
+    # Invalid because we currently do not support pasting in protocol integers, only the protocol name (e.g. 'tcp') or 'any', or the user supplied an unsupported protocol.
+    ip_proto, validation_result = capture_packet_str_validation(
+        dispatcher,
+        ip_proto,
+        valid_ip_protocols,
+        "IP protocol",
+        f"IP protocol {ip_proto} must be a valid IP protocol `tcp`, `udp`, or the string `any`.",
+    )
+    if not validation_result:
+        return ip_proto
 
     # Validate stage
-    try:
-        valid_stage_found = [valid_stage for valid_stage in valid_stages if stage.capitalize() == valid_stage[0]]
-        if valid_stage_found:
-            stage = valid_stage_found[0][1]
-        else:
-            # User supplied an invalid or unsupported value for 'stage'
-            return notify_user_of_error(f"Stage {stage} must be a valid stage `drop`, `firewall`, `receive`, or `transmit`")
-    except AttributeError:
-        # User may have supplied an invalid stage, or there was an error parsing the stage given as a string
-        #   Ideally this should not trigger
-        return notify_user_of_error(f"Stage {ip_proto} is invalid.")
+    stage, validation_result = capture_packet_str_validation(
+        dispatcher,
+        stage,
+        valid_stages,
+        "Stage",
+        f"Stage {stage} must be a valid stage `drop`, `firewall`, `receive`, or `transmit`",
+    )
+    if not validation_result:
+        return stage
 
     # Validate capture_seconds
     try:
         if not 1 <= int(capture_seconds) <= 120:
             raise ValueError
     except ValueError:
-        return notify_user_of_error("Capture Seconds must be specified as a number in the range 1-120.")
+        return notify_user_of_error(dispatcher, "Capture Seconds must be specified as a number in the range 1-120.")
 
     # ---------------------------------------------------
     # Start Packet Capture on Device
@@ -645,10 +679,7 @@ def capture_traffic(
         device_ip = devices[device]["ip_address"]
         logger.info("Attempting packet capture to device %s via IP address %s.", device, device_ip)
     except KeyError:
-        msg = f"No IP address found assigned to device {device} in Panorama."
-        logger.error(msg)
-        dispatcher.send_warning(msg)
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(dispatcher, f"No IP address found assigned to device {device} in Panorama.")
 
     # Name of capture file
     capture_filename = f"{device}-packet-capture.pcap"

@@ -3,6 +3,8 @@ import logging
 import os
 import re
 from ipaddress import ip_network
+from typing import List, Tuple, Union
+
 from netmiko import NetMikoTimeoutException
 from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
@@ -13,8 +15,6 @@ from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-
-from typing import List, Tuple, Union
 
 from nautobot_plugin_chatops_panorama.constant import ALLOWED_OBJECTS
 
@@ -117,9 +117,8 @@ def capture_packet_str_validation(
         ]
         if valid_item_found:
             return valid_item_found[0][1], True
-        else:
-            # User supplied an invalid or unsupported value
-            return notify_user_of_error(dispatcher, not_found_error), False
+        # User supplied an invalid or unsupported value
+        return notify_user_of_error(dispatcher, not_found_error), False
     except AttributeError:
         # User may have supplied an invalid value, or there was an error parsing the value given as a string
         #   Ideally this should not trigger
@@ -493,7 +492,7 @@ def capture_traffic(
     stage: str,
     capture_seconds: str,
     **kwargs,
-):  # pylint:disable=too-many-arguments,too-many-return-statements,too-many-locals,too-many-branches
+):  # pylint:disable=too-many-statements,too-many-arguments,too-many-return-statements,too-many-locals,too-many-branches
     """Capture IP traffic on PANOS Device.
 
     Args:
@@ -698,11 +697,8 @@ def capture_traffic(
                 "capture_seconds": capture_seconds,
             },
         )
-    except NetMikoTimeoutException as e:
-        msg = f"Unable to connect to device {device} via IP address {device_ip}."
-        logger.error(msg, exc_info=e)
-        dispatcher.send_warning(msg)
-        return CommandStatusChoices.STATUS_FAILED
+    except NetMikoTimeoutException:
+        return notify_user_of_error(dispatcher, f"Unable to connect to device {device} via IP address {device_ip}.")
 
     blocks = [
         *dispatcher.command_response_header(

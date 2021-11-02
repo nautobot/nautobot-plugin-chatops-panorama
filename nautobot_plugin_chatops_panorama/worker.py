@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from ipaddress import ip_network
+from netmiko import NetMikoTimeoutException
 from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
 from django_rq import job
@@ -586,36 +587,43 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
+    devices = get_devices(connection=pano)
     try:
-        device_ip = Device.objects.get(name=device).custom_field_data["public_ipv4"]
-        logger.info("Attempting packet capture to device %s via public IP address %s.", device, device_ip)
+        # TODO: This gathers the internal IP address that Panorama sees. However if the firewall is accessible to Nautobot via a different IP address (e.g. external), this fails.
+        #       Add support for multiple possible IP addresses here
+        device_ip = devices[device]["ip_address"]
+        logger.info("Attempting packet capture to device %s via IP address %s.", device, device_ip)
     except KeyError:
-        logger.warning("No Public IPv4 address assigned to device %s in Nautobot.", device)
-        device_ip = Device.objects.get(name=device).primary_ip4
-        logger.info("Attempting packet capture to device %s via primary IP address %s.", device, device_ip)
-
-    # Convert IPAddress model type to string
-    device_ip = str(device_ip)
+        msg = f"No IP address found assigned to device {device} in Panorama."
+        logger.error(msg)
+        dispatcher.send_warning(msg)
+        return CommandStatusChoices.STATUS_FAILED
 
     # Name of capture file
     capture_filename = f"{device}-packet-capture.pcap"
 
     # Begin packet capture on device
-    start_packet_capture(
-        capture_filename,
-        device_ip,
-        {
-            "snet": snet.split("/")[0],
-            "scidr": snet.split("/")[1],
-            "dnet": dnet.split("/")[0],
-            "dcidr": dnet.split("/")[1],
-            "dport": dport,
-            "intf_name": intf_name,
-            "ip_proto": ip_proto,
-            "stage": stage,
-            "capture_seconds": capture_seconds,
-        },
-    )
+    try:
+        start_packet_capture(
+            capture_filename,
+            device_ip,
+            {
+                "snet": snet.split("/")[0],
+                "scidr": snet.split("/")[1],
+                "dnet": dnet.split("/")[0],
+                "dcidr": dnet.split("/")[1],
+                "dport": dport,
+                "intf_name": intf_name,
+                "ip_proto": ip_proto,
+                "stage": stage,
+                "capture_seconds": capture_seconds,
+            },
+        )
+    except NetMikoTimeoutException as e:
+        msg = f"Unable to connect to device {device} via IP address {device_ip}."
+        logger.error(msg, exc_info=e)
+        dispatcher.send_warning(msg)
+        return CommandStatusChoices.STATUS_FAILED
 
     blocks = [
         *dispatcher.command_response_header(
@@ -640,4 +648,5 @@ def capture_traffic(
         ["Capture Seconds", capture_seconds],
     ]
     dispatcher.send_large_table(("Object", "Value"), all_values)
-    return dispatcher.send_image(capture_filename)
+    dispatcher.send_image(capture_filename)
+    return CommandStatusChoices.STATUS_SUCCEEDED

@@ -14,10 +14,7 @@ from nautobot_chatops.workers import handle_subcommands, subcommand_of
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing import List, Tuple, Union
+from typing import List, Tuple, Union
 
 from nautobot_plugin_chatops_panorama.constant import ALLOWED_OBJECTS
 

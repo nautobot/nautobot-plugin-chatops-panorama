@@ -83,6 +83,13 @@ def is_valid_cidr(ip_address: str) -> str:
         return ""
 
 
+def notify_user_of_error(dispatcher: object, error_msg: str) -> str:
+    """Notify the user of an error, logs error to syslog, and returns FAILED command status for Nautobot logging."""
+    logger.error(error_msg)
+    dispatcher.send_warning(error_msg)
+    return CommandStatusChoices.STATUS_FAILED
+
+
 @job("default")
 def panorama(subcommand, **kwargs):
     """Perform panorama and its subcommands."""
@@ -465,7 +472,10 @@ def capture_traffic(
         capture_seconds (str): Number of seconds to run packet capture
 
     """
-    logger.info("Starting packet capture")
+    logger.info("Starting capture_traffic()")
+
+    valid_ip_protocols = [("ANY", "any"), ("TCP", "6"), ("UDP", "17")]
+    valid_stages = [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")]
 
     if all([device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
         dispatcher.send_markdown(
@@ -485,6 +495,8 @@ def capture_traffic(
     # Get parameters used to filter packet capture
     # ---------------------------------------------------
     _interfaces = Interface.objects.filter(device__name=device)
+    interface_list = [(intf.name, intf.name) for intf in _interfaces]
+
     dialog_list = [
         {
             "type": "text",
@@ -504,20 +516,20 @@ def capture_traffic(
         {
             "type": "select",
             "label": "Interface Name",
-            "choices": [(intf.name, intf.name) for intf in _interfaces],
+            "choices": interface_list,
             "confirm": False,
         },
         {
             "type": "select",
             "label": "IP Protocol",
-            "choices": [("ANY", "any"), ("TCP", "6"), ("UDP", "17")],
+            "choices": valid_ip_protocols,
             "confirm": False,
             "default": ("ANY", "any"),
         },
         {
             "type": "select",
             "label": "Capture Stage",
-            "choices": [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")],
+            "choices": valid_stages,
             "confirm": False,
             "default": ("Receive", "receive"),
         },
@@ -547,22 +559,20 @@ def capture_traffic(
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
+    
+    # Validate snet
     try:
         ip_network(snet)
     except ValueError:
-        dispatcher.send_warning(
-            f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation"
-        )
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation.")
 
+    # Validate dnet
     try:
         ip_network(dnet)
     except ValueError:
-        dispatcher.send_warning(
-            f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation"
-        )
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation.")
 
+    # Validate dport
     try:
         dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
         if not 1 <= int(dport) <= 65535:
@@ -571,18 +581,59 @@ def capture_traffic(
         # Port may be a string, which is still valid
         dport = dport.lower()
         if dport != "any":
-            dispatcher.send_warning(dport_error)
-            return CommandStatusChoices.STATUS_FAILED
+            return notify_user_of_error(dport_error)
     except (AttributeError, TypeError):
-        dispatcher.send_warning(dport_error)
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(dport_error)
 
+    # Validate intf_name
+    try:
+        valid_interface_found = [valid_intf for valid_intf in interface_list if intf_name.lower() == valid_intf[0].lower()]
+        if valid_interface_found:
+            # If the user supplied an interface name, this uses the actual one present and ignores case sensitivity
+            intf_name = valid_interface_found[0][1]
+        else:
+            # Interface not found on device
+            return notify_user_of_error(f"Interface {intf_name} was not found on device {device}.")
+    except AttributeError:
+        # User may have supplied an invalid interface name, or there was an error parsing the interfaces supplied by Panorama
+        #   Ideally this should not trigger
+        return notify_user_of_error(f"Interface {intf_name} is invalid.")
+    
+    # Validate ip_proto
+    # We have to validate here and do some conversion in case the user pastes in the full command
+    try:
+        valid_protocol_found = [valid_tuple for valid_tuple in valid_ip_protocols if ip_proto.upper() == valid_tuple[0]]
+        if valid_protocol_found:
+            # Change to value needed for actual command. E.g. 'tcp' should be the protocol number '6'
+            ip_proto = valid_protocol_found[0][1]
+        else:
+            # We currently do not support pasting in protocol integers, only the protocol name (e.g. 'tcp') or 'any'.
+            #   Or the user supplied an unsupported protocol.
+            return notify_user_of_error(f"IP protocol {ip_proto} must be a valid IP protocol `tcp`, `udp`, or the string `any`.")
+    except AttributeError:
+        # User may have supplied an invalid IP protocol, or there was an error parsing the protocol given as a string
+        #   Ideally this should not trigger
+        return notify_user_of_error(f"IP Protocol {ip_proto} is invalid.")
+
+    # Validate stage
+    try:
+        valid_stage_found = [valid_stage for valid_stage in valid_stages if stage.capitalize() == valid_stage[0]]
+        if valid_stage_found:
+            stage = valid_stage_found[0][1]
+        else:
+            # User supplied an invalid or unsupported value for 'stage'
+            return notify_user_of_error(f"Stage {stage} must be a valid stage `drop`, `firewall`, `receive`, or `transmit`")
+    except AttributeError:
+        # User may have supplied an invalid stage, or there was an error parsing the stage given as a string
+        #   Ideally this should not trigger
+        return notify_user_of_error(f"Stage {ip_proto} is invalid.")
+
+    # Validate capture_seconds
     try:
         if not 1 <= int(capture_seconds) <= 120:
             raise ValueError
     except ValueError:
-        dispatcher.send_warning("Capture Seconds must be specified as a number in the range 1-120.")
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error("Capture Seconds must be specified as a number in the range 1-120.")
 
     # ---------------------------------------------------
     # Start Packet Capture on Device

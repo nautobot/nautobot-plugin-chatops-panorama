@@ -3,6 +3,8 @@ import logging
 import os
 import re
 from ipaddress import ip_network
+from typing import List, Tuple, Union
+
 from netmiko import NetMikoTimeoutException
 from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
@@ -81,6 +83,46 @@ def is_valid_cidr(ip_address: str) -> str:
         return str(ip_network(str(ip_address)))
     except ValueError:
         return ""
+
+
+def notify_user_of_error(dispatcher: object, error_msg: str) -> str:
+    """Notify the user of an error, logs error to syslog, and returns FAILED command status for Nautobot logging."""
+    logger.error(error_msg)
+    dispatcher.send_warning(error_msg)
+    return CommandStatusChoices.STATUS_FAILED
+
+
+def capture_packet_str_validation(
+    dispatcher: object,
+    value_to_check: str,
+    valid_values: List[Tuple[str, Union[str, int]]],
+    variable_description: str,
+    not_found_error: str,
+) -> Tuple[str, bool]:
+    """Validates a user string input against list existing of valid values.
+
+    Args:
+        dispatcher (obj): Dispatcher object from Nautobot/Django
+        value_to_check (str): Value to check to see if valid
+        valid_values (list): List of tuples with valid values
+        variable_description (str): Type of variable being checked (e.g. "Interface")
+        not_found_error (str): Error to display to user and log to syslog if value given is invalid
+
+    Returns:
+        tuple: Tuple of string value, and boolean if validation passed
+    """
+    try:
+        valid_item_found = [
+            valid_item for valid_item in valid_values if value_to_check.lower() == valid_item[0].lower()
+        ]
+        if valid_item_found:
+            return valid_item_found[0][1], True
+        # User supplied an invalid or unsupported value
+        return notify_user_of_error(dispatcher, not_found_error), False
+    except AttributeError:
+        # User may have supplied an invalid value, or there was an error parsing the value given as a string
+        #   Ideally this should not trigger
+        return notify_user_of_error(dispatcher, f"{variable_description} is invalid."), False
 
 
 @job("default")
@@ -450,7 +492,7 @@ def capture_traffic(
     stage: str,
     capture_seconds: str,
     **kwargs,
-):  # pylint:disable=too-many-arguments,too-many-return-statements,too-many-locals,too-many-branches
+):  # pylint:disable=too-many-statements,too-many-arguments,too-many-return-statements,too-many-locals,too-many-branches
     """Capture IP traffic on PANOS Device.
 
     Args:
@@ -465,7 +507,10 @@ def capture_traffic(
         capture_seconds (str): Number of seconds to run packet capture
 
     """
-    logger.info("Starting packet capture")
+    logger.info("Starting capture_traffic()")
+
+    valid_ip_protocols = [("ANY", "any"), ("TCP", "6"), ("UDP", "17")]
+    valid_stages = [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")]
 
     if all([device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
         dispatcher.send_markdown(
@@ -485,6 +530,8 @@ def capture_traffic(
     # Get parameters used to filter packet capture
     # ---------------------------------------------------
     _interfaces = Interface.objects.filter(device__name=device)
+    interface_list = [(intf.name, intf.name) for intf in _interfaces]
+
     dialog_list = [
         {
             "type": "text",
@@ -504,20 +551,20 @@ def capture_traffic(
         {
             "type": "select",
             "label": "Interface Name",
-            "choices": [(intf.name, intf.name) for intf in _interfaces],
+            "choices": interface_list,
             "confirm": False,
         },
         {
             "type": "select",
             "label": "IP Protocol",
-            "choices": [("ANY", "any"), ("TCP", "6"), ("UDP", "17")],
+            "choices": valid_ip_protocols,
             "confirm": False,
             "default": ("ANY", "any"),
         },
         {
             "type": "select",
             "label": "Capture Stage",
-            "choices": [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")],
+            "choices": valid_stages,
             "confirm": False,
             "default": ("Receive", "receive"),
         },
@@ -547,22 +594,25 @@ def capture_traffic(
     # ---------------------------------------------------
     # Validate dialog list
     # ---------------------------------------------------
+
+    # Validate snet
     try:
         ip_network(snet)
     except ValueError:
-        dispatcher.send_warning(
-            f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation"
+        return notify_user_of_error(
+            dispatcher, f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation."
         )
-        return CommandStatusChoices.STATUS_FAILED
 
+    # Validate dnet
     try:
         ip_network(dnet)
     except ValueError:
-        dispatcher.send_warning(
-            f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation"
+        return notify_user_of_error(
+            dispatcher,
+            f"Destination Network {dnet} is not a valid CIDR, please specify a valid network in CIDR notation.",
         )
-        return CommandStatusChoices.STATUS_FAILED
 
+    # Validate dport
     try:
         dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
         if not 1 <= int(dport) <= 65535:
@@ -571,18 +621,49 @@ def capture_traffic(
         # Port may be a string, which is still valid
         dport = dport.lower()
         if dport != "any":
-            dispatcher.send_warning(dport_error)
-            return CommandStatusChoices.STATUS_FAILED
+            return notify_user_of_error(dispatcher, dport_error)
     except (AttributeError, TypeError):
-        dispatcher.send_warning(dport_error)
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(dispatcher, dport_error)
 
+    # Validate intf_name
+    # If the user supplied an interface name, this uses the actual one present and ignores case sensitivity
+    intf_name, validation_result = capture_packet_str_validation(
+        dispatcher, intf_name, interface_list, "Interface", f"Interface {intf_name} was not found on device {device}."
+    )
+    if not validation_result:
+        return intf_name
+
+    # Validate ip_proto
+    # We have to validate here and do some conversion in case the user pastes in the full command
+    # If valid, change to value needed for actual command. E.g. 'tcp' should be the protocol number '6'
+    # Invalid because we currently do not support pasting in protocol integers, only the protocol name (e.g. 'tcp') or 'any', or the user supplied an unsupported protocol.
+    ip_proto, validation_result = capture_packet_str_validation(
+        dispatcher,
+        ip_proto,
+        valid_ip_protocols,
+        "IP protocol",
+        f"IP protocol {ip_proto} must be a valid IP protocol `tcp`, `udp`, or the string `any`.",
+    )
+    if not validation_result:
+        return ip_proto
+
+    # Validate stage
+    stage, validation_result = capture_packet_str_validation(
+        dispatcher,
+        stage,
+        valid_stages,
+        "Stage",
+        f"Stage {stage} must be a valid stage `drop`, `firewall`, `receive`, or `transmit`",
+    )
+    if not validation_result:
+        return stage
+
+    # Validate capture_seconds
     try:
         if not 1 <= int(capture_seconds) <= 120:
             raise ValueError
     except ValueError:
-        dispatcher.send_warning("Capture Seconds must be specified as a number in the range 1-120.")
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(dispatcher, "Capture Seconds must be specified as a number in the range 1-120.")
 
     # ---------------------------------------------------
     # Start Packet Capture on Device
@@ -594,10 +675,7 @@ def capture_traffic(
         device_ip = devices[device]["ip_address"]
         logger.info("Attempting packet capture to device %s via IP address %s.", device, device_ip)
     except KeyError:
-        msg = f"No IP address found assigned to device {device} in Panorama."
-        logger.error(msg)
-        dispatcher.send_warning(msg)
-        return CommandStatusChoices.STATUS_FAILED
+        return notify_user_of_error(dispatcher, f"No IP address found assigned to device {device} in Panorama.")
 
     # Name of capture file
     capture_filename = f"{device}-packet-capture.pcap"
@@ -619,11 +697,8 @@ def capture_traffic(
                 "capture_seconds": capture_seconds,
             },
         )
-    except NetMikoTimeoutException as e:
-        msg = f"Unable to connect to device {device} via IP address {device_ip}."
-        logger.error(msg, exc_info=e)
-        dispatcher.send_warning(msg)
-        return CommandStatusChoices.STATUS_FAILED
+    except NetMikoTimeoutException:
+        return notify_user_of_error(dispatcher, f"Unable to connect to device {device} via IP address {device_ip}.")
 
     blocks = [
         *dispatcher.command_response_header(

@@ -1,6 +1,22 @@
-# Nautobot Plugin Chatops Panorama
+# Nautobot Plugin ChatOps Panorama
 
-A plugin for [Nautobot](https://github.com/nautobot/nautobot).
+This is a plugin for [Nautobot](https://github.com/nautobot/nautobot) that extends ChatOps support to the Palo Alto Panorama system. It adds some useful commands into your ChatOps environment that enhance an administrator's and end user's day to day using of Panorama. This framework allows the writing of new ChatOps commands for Panorama very easily.
+
+Note: While this plugin requires Nautobot and the base Nautobot ChatOps plugin, it does _not_ require the Panorama or Palo Alto inventory to be in Nautobot. It is effectively Nautobot-independent, except for using it as a backend to run the chat bot itself.
+
+## Usage
+
+The supported commands are listed below. We welcome any new command or feature requests by submitting an issue or PR.
+
+| /panorama Command    | Description                                                                |
+| -------------------- | -------------------------------------------------------------------------- |
+| capture-traffic      | Run a packet capture on PANOS Device for specified IP traffic.             |
+| export-device-rules  | Generate a downloadable list of firewall rules with details in CSV format. |
+| get-device-rules     | Return a list of all firewall rules on a given device with details.        |
+| get-version          | Obtain software version information for Panorama.                          |
+| install-software     | Install software to specified Palo Alto device.                            |
+| upload-software      | Upload software to specified Palo Alto device.                             |
+| validate-rule-exists | Verify that a specific ACL rule exists within a device, via Panorama.      |
 
 ## Prerequisites
 
@@ -33,27 +49,13 @@ PLUGINS = ["nautobot_chatops", "nautobot_plugin_chatops_panorama"]
 
 You will need to set the following environment variables for your Nautobot instance, then restart the services for them to take effect.
 
-* PANORAMA_HOST - This is the management DNS/IP address used to reach your Panorama instance.
-* PANORAMA_USER - A user account with API access to Panorama.
-* PANORAMA_PASSWORD - The password that goes with the above user account.
+- PANORAMA_HOST - This is the management DNS/IP address used to reach your Panorama instance.
+- PANORAMA_USER - A user account with API access to Panorama.
+- PANORAMA_PASSWORD - The password that goes with the above user account.
 
 ## Access Control
 
 Just like with the regular `/nautobot` command from the base Nautobot ChatOps plugin, the `/panorama` command supports access control through the Access Grants menu in Nautobot. See section [Grant Access to the Chatbot](https://github.com/nautobot/nautobot-plugin-chatops/blob/develop/docs/chat_setup/chat_setup.md#grant-access-to-the-chatbot) in the installation guide for the base Nautobot ChatOps plugin for setting this up.
-
-## Usage
-
-The supported commands are listed below. We welcome any new command or feature requests by submitting an issue or PR.
-
-| /panorama Command     | Description                           |
-| --------------------- | ------------------------------------- |
-| capture-traffic       | Run a packet capture on PANOS Device for specified IP traffic. |
-| export-device-rules   | Generate a downloadable list of firewall rules with details in CSV format. |
-| get-device-rules      | Return a list of all firewall rules on a given device with details. |
-| get-version           | Obtain software version information for Panorama. |
-| install-software      | Install software to specified Palo Alto device. |
-| upload-software       | Upload software to specified Palo Alto device. |
-| validate-rule-exists  | Verify that a specific ACL rule exists within a device, via Panorama. |
 
 ## Questions
 

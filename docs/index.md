@@ -1,6 +1,6 @@
 # Nautobot Plugin ChatOps Panorama
 
-This is a plugin for [Nautobot](https://github.com/nautobot/nautobot) that extends ChatOps support to the Palo Alto Panorama system. It adds some useful commands into your ChatOps environment that enhance an administrator's and end user's day to day using of Panorama. This framework allows the writing of new ChatOps commands for Panorama very easily.
+This is a plugin for [Nautobot](https://github.com/nautobot/nautobot) that extends ChatOps support to Palo Alto Panorama systems. The plugin adds some useful commands into your ChatOps environment that enhance an administrator's and end user's day to day using of Panorama. This framework allows for the quick extension of new ChatOps commands for Panorama.
 
 Note: While this plugin requires Nautobot and the base Nautobot ChatOps plugin, it does _not_ require the Panorama or Palo Alto inventory to be in Nautobot. It is effectively Nautobot-independent, except for using it as a backend to run the chat bot itself.
 

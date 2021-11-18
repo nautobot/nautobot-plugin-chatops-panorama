@@ -1,4 +1,4 @@
-# Nautobot Plugin ChatOps Panorama
+# Nautobot Panorama ChatOps
 
 This is a plugin for [Nautobot](https://github.com/nautobot/nautobot) that extends ChatOps support to Palo Alto Panorama systems. The plugin adds some useful commands into your ChatOps environment that enhance an administrator's and end user's day to day using of Panorama. This framework allows for the quick extension of new ChatOps commands for Panorama.
 
@@ -32,7 +32,7 @@ pip install nautobot-plugin-chatops-panorama
 
 > The plugin is compatible with Nautobot 1.1.0 and higher
 
-To ensure Nautobot Plugin ChatOps Panorama is automatically re-installed during future upgrades, create a file named `local_requirements.txt` (if not already existing) in the Nautobot root directory (alongside `requirements.txt`) and list the `nautobot-plugin-chatops-panorama` package:
+To ensure Nautobot Panorama ChatOps is automatically re-installed during future upgrades, create a file named `local_requirements.txt` (if not already existing) in the Nautobot root directory (alongside `requirements.txt`) and list the `nautobot-plugin-chatops-panorama` package:
 
 ```no-highlight
 # echo nautobot-plugin-chatops-panorama >> local_requirements.txt

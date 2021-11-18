@@ -45,6 +45,40 @@ Once installed, the plugin needs to be enabled in your `nautobot_config.py`
 PLUGINS = ["nautobot_chatops", "nautobot_plugin_chatops_panorama"]
 ```
 
+In addition, add/update the below `PLUGINS_CONFIG` section to `nautobot_config.py`.
+
+> It is only necessary to add the sections from the below snippet for the chat platform you will be using (Slack, Webex, etc.).
+
+```python
+# Also in nautobot_config.py
+PLUGINS_CONFIG = {
+    "nautobot_chatops": {
+        # Slack
+        "enable_slack": os.environ.get("ENABLE_SLACK", False),
+        "slack_api_token": os.environ.get("SLACK_API_TOKEN"),
+        "slack_signing_secret": os.environ.get("SLACK_SIGNING_SECRET"),
+        "slack_slash_command_prefix": os.environ.get("SLACK_SLASH_COMMAND_PREFIX", "/"),
+        # Webex
+        "enable_webex": os.environ.get("ENABLE_WEBEX", False),
+        "webex_token": os.environ.get("WEBEX_TOKEN"),
+        "webex_signing_secret": os.environ.get("WEBEX_SIGNING_SECRET"),
+        # Mattermost
+        "enable_mattermost": os.environ.get("ENABLE_MATTERMOST", False),
+        "mattermost_api_token": os.environ.get("MATTERMOST_API_TOKEN"),
+        "mattermost_url": os.environ.get("MATTERMOST_URL"),
+        # MS Teams
+        "enable_ms_teams": os.environ.get("ENABLE_MS_TEAMS", False),
+        "microsoft_app_id": os.environ.get("MICROSOFT_APP_ID"),
+        "microsoft_app_password": os.environ.get("MICROSOFT_APP_PASSWORD"),
+    },
+    "nautobot_plugin_chatops_panorama": {
+        "panorama_host": os.environ.get("PANORAMA_HOST"),
+        "panorama_user": os.environ.get("PANORAMA_USER"),
+        "panorama_password": os.environ.get("PANORAMA_PASSWORD"),
+    },
+}
+```
+
 ### Environment Variables
 
 You will need to set the following environment variables for your Nautobot instance, then restart the services for them to take effect.
@@ -52,6 +86,37 @@ You will need to set the following environment variables for your Nautobot insta
 - PANORAMA_HOST - This is the management DNS/IP address used to reach your Panorama instance.
 - PANORAMA_USER - A user account with API access to Panorama.
 - PANORAMA_PASSWORD - The password that goes with the above user account.
+
+```bash
+export PANORAMA_HOST="{{ Panorama DNS/URL }}"
+export PANORAMA_USER="{{ Panorama account username }}"
+export PANORAMA_PASSWORD="{{ Panorama account password }}"
+```
+
+If the base Nautobot Chatops plugin is not already installed, the following environment variables are required for the chat platform in use. The [Platform-specific Setup](https://github.com/nautobot/nautobot-plugin-chatops/blob/develop/docs/chat_setup/chat_setup.md#platform-specific-setup) document describes how to retrieve the tokens and secrets for each chat platform that will need to be used in the environment variables.
+
+> It is only necessary to create the environment variables shown below for the chat platform you will be using. To make the environment variables persistent, add them to the ~/.bash_profile for the user running Nautobot.
+
+```bash
+# Slack
+export ENABLE_SLACK="true"
+export SLACK_API_TOKEN="foobar"
+export SLACK_SIGNING_SECRET="foobar"
+# Webex
+export ENABLE_WEBEX="true"
+export WEBEX_TOKEN="foobar"
+export WEBEX_SIGNING_SECRET="foobar"
+# Mattermost
+export ENABLE_MATTERMOST="false"
+export MATTERMOST_API_TOKEN="foobar"
+export MATTERMOST_URL="foobar"
+# Microsoft Teams
+export ENABLE_MS_TEAMS="false"
+export MICROSOFT_APP_ID="foobar"
+export MICROSOFT_APP_PASSWORD="foobar"
+```
+
+> When deploying as Docker containers, all of the above environment variables should be defined in the file `development/creds.env`. An example credentials file `creds.env.example` is available in the `development` folder.
 
 ## Access Control
 

@@ -1,20 +1,25 @@
-from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
+"""Functions used for interacting with Panroama."""
 
-from panos.panorama import Panorama
-from panos.firewall import Firewall
-from panos.objects import AddressObject, ServiceObject
-from panos.errors import PanObjectMissing
-from requests.exceptions import RequestException
+import time
+
 import defusedxml.ElementTree as ET
 import requests
+
 from netmiko import ConnectHandler
-import time
+from panos.firewall import Firewall
+from panos.panorama import Panorama
 from panos.policies import Rulebase, SecurityRule
+from requests.exceptions import RequestException
+
+from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
+
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
     """Returns the API key.
+
     Args:
         url (str): URL of the device
+
     Returns:
         The API key.
     """
@@ -22,7 +27,7 @@ def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
 
     params = {"type": "keygen", "user": PLUGIN_CFG["panorama_user"], "password": PLUGIN_CFG["panorama_password"]}
 
-    response = requests.get(f"https://{url}/api/", params=params, verify=False)
+    response = requests.get(f"https://{url}/api/", params=params, verify=False)  # nosec
     if response.status_code != 200:
         raise RequestException(f"Something went wrong while making a request. Reason: {response.text}")
 
@@ -40,7 +45,7 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def _get_group(groups, serial):
+def _get_group(groups: dict, serial: str) -> str:
     """Sort through fetched groups and serials and return group.
 
     Args:
@@ -50,25 +55,33 @@ def _get_group(groups, serial):
     Returns:
         group_name (str): Name of group serial is part of or None if serial not in a group
     """
-    for k, v in groups.items():
-        if serial in v:
-            return k
+    for group_name, serial_numbers in groups.items():
+        if serial in serial_numbers:
+            return group_name
+    return None
 
 
-def get_rule_match(connection: Panorama, five_tuple: dict, serial: str) -> dict:
+def get_rule_match(five_tuple: dict, serial: str) -> dict:
     """Method to obtain the devices connected to Panorama.
+
     Args:
-        connection (Panorama): Connection object to Panorama.
+        five_tuple (dict): Five tuple dictionary for rule lookup
+        serial (str): Serial of firewall device to query
+
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
-
-    host = PLUGIN_CFG['panorama_host'].rstrip("/")
-    fw = Firewall(serial=serial)
+    host = PLUGIN_CFG["panorama_host"].rstrip("/")
+    firewall = Firewall(serial=serial)
     pano = Panorama(host, api_key=get_api_key_api())
-    pano.add(fw)
-    return fw.test_security_policy_match(source=five_tuple["src_ip"], destination=five_tuple["dst_ip"], protocol=int(five_tuple["protocol"]), port=int(five_tuple["dst_port"]))
-
+    pano.add(firewall)
+    match = firewall.test_security_policy_match(
+        source=five_tuple["src_ip"],
+        destination=five_tuple["dst_ip"],
+        protocol=int(five_tuple["protocol"]),
+        port=int(five_tuple["dst_port"]),
+    )
+    return match
 
 
 def get_devices(connection: Panorama) -> dict:
@@ -80,7 +93,7 @@ def get_devices(connection: Panorama) -> dict:
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
-    dev_list = connection.refresh_devices(expand_vsys=False, include_device_groups=False)
+    dev_list = connection.refresh_devices(include_device_groups=False)
 
     group_names = [device.name for device in connection.refresh_devices()]
     group_xml_obj = connection.op("show devicegroups")
@@ -111,38 +124,39 @@ def get_devices(connection: Panorama) -> dict:
     return _device_dict
 
 
-def start_packet_capture(ip: str, filters: dict):
+def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
     """Starts or stops packet capturing on the Managed FW.
 
     Args:
-        ip (str): IP address of the device
+        capture_filename (str): Name of packet capture file
+        ip_address (str): IP address of the device
         filters (dict): Commands to pass to the device for packet capturing
-
     """
-
     dev_connect = {
-        'device_type': 'paloalto_panos',
-        'host': ip,
-        'username': PLUGIN_CFG["panorama_user"],
-        'password': PLUGIN_CFG["panorama_password"]
+        "device_type": "paloalto_panos",
+        "host": ip_address,
+        "username": PLUGIN_CFG["panorama_user"],
+        "password": PLUGIN_CFG["panorama_password"],
     }
 
-    command=f"debug dataplane packet-diag set filter index 1 match ingress-interface {filters['intf_name']}"
+    command = f"debug dataplane packet-diag set filter index 1 match ingress-interface {filters['intf_name']}"
 
-    if filters["dport"]:
+    # Ignore this command if not filtering by port (when user sets port to 'any')
+    if filters["dport"] and filters["dport"] != "any":
         command += f" destination-port {filters['dport']}"
 
-    if filters['dnet'] != "0.0.0.0":
+    if filters["dnet"] != "0.0.0.0":  # nosec
         command += f" destination {filters['dnet']}"
-        if filters['dcidr'] != "0":
+        if filters["dcidr"] != "0":
             command += f" destination-netmask {filters['dcidr']}"
 
-    if filters['snet'] != "0.0.0.0":
+    if filters["snet"] != "0.0.0.0":  # nosec
         command += f" source {filters['snet']}"
-        if filters['scidr'] != "0":
+        if filters["scidr"] != "0":
             command += f" source-netmask {filters['scidr']}"
 
-    if filters['ip_proto']:
+    # Ignore this command if not filtering by port (when user sets protocol to 'any')
+    if filters["ip_proto"] and filters["ip_proto"] != "any":
         command += f" protocol {filters['ip_proto']}"
 
     ssh = ConnectHandler(**dev_connect)
@@ -151,119 +165,56 @@ def start_packet_capture(ip: str, filters: dict):
 
     ssh.send_command(command)
     ssh.send_command("debug dataplane packet-diag set filter on")
-    ssh.send_command(f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap")
+    ssh.send_command(
+        f"debug dataplane packet-diag set capture stage {filters['stage']}  byte-count 1024 file python.pcap"
+    )
     ssh.send_command("debug dataplane packet-diag set capture on")
-    time.sleep(int(filters['capture_seconds']))
+    time.sleep(int(filters["capture_seconds"]))
     ssh.send_command("debug dataplane packet-diag set capture off")
     ssh.send_command("debug dataplane packet-diag set filter off")
     ssh.disconnect()
-    _get_pcap(ip)
+    _get_pcap(capture_filename, ip_address)
 
 
-def _get_pcap(ip:str):
-    """Downloads PCAP file from PANOS device
+def _get_pcap(capture_filename: str, ip_address: str):
+    """Downloads PCAP file from PANOS device.
 
-    Args:b
-        ip (str): IP address of the device
+    Args:
+        capture_filename (str): Name of packet capture file
+        ip_address (str): IP address of the device
     """
+    url = f"https://{ip_address}/api/"
 
-    url = f"https://{ip}/api/"
+    params = {"key": get_api_key_api(), "type": "export", "category": "filters-pcap", "from": "1.pcap"}
 
-    params = {
-        "key": get_api_key_api(),
-        "type": "export",
-        "category": "filters-pcap",
-        "from": "1.pcap"
-    }
+    respone = requests.get(url, params=params, verify=False)  # nosec
 
-    respone = requests.get(url, params=params, verify=False)
-
-    with open("captured.pcap", "wb") as pcap_file:
+    with open(capture_filename, "wb") as pcap_file:
         pcap_file.write(respone.content)
 
 
-def compare_address_objects(address_objects, connection):
-    results = []
-    for addr in address_objects:
-        # Set initial values to be used in final results (row)
-        loop_result = [addr, "address"]
-
-        # Parse out the IP address and CIDR
-        oct1, oct2, oct3, oct4, cidr = addr.split("_")[1:]
-        ip_address = f"{oct1}.{oct2}.{oct3}.{oct4}/{cidr}"
-
-        # Build Panos Objects to attempt to compare to.
-        addr_obj = AddressObject(name=addr, value=ip_address)
-        panos_obj = connection.add(addr_obj)
-
-        # Catch exception if object doesn't already exist to prevent invalid comparison
-        try:
-            panos_obj.refresh()
-        except PanObjectMissing:
-            loop_result.append("Does not exist")
-            results.append(loop_result)
-            continue
-
-        if panos_obj.value != ip_address:
-            loop_result.append(f"Discrepancy!! Nautobot value: {ip_address}, Panorama value: {panos_obj.value}")
-        else:
-            loop_result.append(f"Nautobot and Panorama are in sync for {addr}.")
-
-        results.append(loop_result)
-
-    return results
-
-
-def compare_service_objects(service_objects, connection):
-    results = []
-    for svc in service_objects:
-        # Set initial values to be used in final results (row)
-        loop_result = [svc, "service"]
-
-        # Parse out the IP address and CIDR
-        protocol, port = svc.split("_")[1:]
-        protocol = protocol.lower()
-
-        # Build Panos Objects to attempt to compare to.
-        svc_obj = ServiceObject(name=svc, protocol=protocol, destination_port=port)
-        panos_obj = connection.add(svc_obj)
-
-        # Catch exception if object doesn't already exist to prevent invalid comparison
-        try:
-            panos_obj.refresh()
-        except PanObjectMissing:
-            loop_result.append("Does not exist")
-            results.append(loop_result)
-            continue
-
-        status_msg = ""
-        if panos_obj.protocol != protocol:
-            status_msg += f"Incorrect protocol: ({protocol}/{panos_obj.protocol})"
-        if panos_obj.destination_port != port:
-            status_msg += f"Incorrect port: ({port}/{panos_obj.destination_port})"
-
-        if not status_msg:
-            loop_result.append(f"Nautobot and Panorama are in sync for {svc}.")
-        else:
-            loop_result.append(status_msg)
-
-        results.append(loop_result)
-
-    return results
-
 def parse_all_rule_names(xml_rules: str) -> list:
+    """Parse all rules names."""
     rule_names = []
     root = ET.fromstring(xml_rules)
     # Get names of rules
-    for i in root.findall('.//entry'):
+    for i in root.findall(".//entry"):
         name = i.attrib.get("name")
         rule_names.append(name)
     return rule_names
 
 
-def get_all_rules(device=None):
-    pano = connect_panorama()
-    devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
+def get_all_rules(device: str, pano: Panorama) -> list:
+    """Get all currently configured rules.
+
+    Args:
+        device (str): Name of firewall device in Panorama
+        pano (Panorama): Panorama connection
+
+    Returns:
+        list: List of rules
+    """
+    devices = pano.refresh_devices(include_device_groups=False)
     device = pano.add(devices[0])
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
     # if not device:
@@ -274,7 +225,8 @@ def get_all_rules(device=None):
     return rules
 
 
-def split_rules(rules, title=''):
+def split_rules(rules, title=""):
+    """Split rules into CSV format."""
     output = title or "Name,Source,Destination,Service,Action,To Zone,From Zone\n"
     for rule in rules:
         sources = ""

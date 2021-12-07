@@ -301,3 +301,7 @@ creds.env
 # Invoke overrides
 invoke.yml
 development/mattermost_config_docker.json
+
+# Ignore generated files from chatops commands
+*.csv
+*.pcap

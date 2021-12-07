@@ -11,9 +11,14 @@ INTERFACES = [
     "ethernet1/5",
     "ethernet1/6",
     "ethernet1/7",
-    "ethernet1/8"
+    "ethernet1/8",
 ]
 
 UNKNOWN_SITE = "Unknown"
 
 ALLOWED_OBJECTS = ("all", "address", "service")
+
+NAPALM_DRIVER = "panos"
+PANOS_MANUFACTURER_NAME = "Palo Alto Networks"
+PANOS_PLATFORM = "PANOS"
+PANOS_DEVICE_ROLE = "Firewall"

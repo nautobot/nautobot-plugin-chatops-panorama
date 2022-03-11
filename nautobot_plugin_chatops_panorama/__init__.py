@@ -1,6 +1,6 @@
 """Plugin declaration for nautobot_plugin_chatops_panorama."""
 
-__version__ = "0.2.0"
+__version__ = "1.1.0"
 
 from nautobot.extras.plugins import PluginConfig
 

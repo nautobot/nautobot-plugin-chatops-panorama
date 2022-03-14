@@ -40,7 +40,7 @@ namespace.configure(
         "nautobot_plugin_chatops_panorama": {
             "nautobot_ver": "1.0.1",
             "project_name": "nautobot_plugin_chatops_panorama",
-            "python_ver": "3.6",
+            "python_ver": "3.7",
             "local": False,
             "compose_dir": os.path.join(os.path.dirname(__file__), "development"),
             "compose_files": [

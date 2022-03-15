@@ -41,7 +41,7 @@ invoke = "*"
 mkdocs = "*"
 pydocstyle = "*"
 pylint = "*"
-pylint-django = "*"
+pylint-django = "2.4.4"
 yamllint = "*"
 
 [tool.poetry.extras]

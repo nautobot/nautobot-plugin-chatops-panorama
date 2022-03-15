@@ -1,9 +1,9 @@
 ---
 nautobot_plugin_chatops_panorama:
   project_name: "nautobot-plugin-chatops-panorama"
-  nautobot_ver: "1.0.1"
+  nautobot_ver: "1.2.8"
   local: false
-  python_ver: "3.6"
+  python_ver: "3.7"
   compose_dir: "development"
   compose_files:
     - "docker-compose.requirements.yml"

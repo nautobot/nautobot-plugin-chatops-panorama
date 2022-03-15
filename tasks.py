@@ -38,7 +38,7 @@ namespace = Collection("nautobot_plugin_chatops_panorama")
 namespace.configure(
     {
         "nautobot_plugin_chatops_panorama": {
-            "nautobot_ver": "1.0.1",
+            "nautobot_ver": "1.2.8",
             "project_name": "nautobot_plugin_chatops_panorama",
             "python_ver": "3.7",
             "local": False,

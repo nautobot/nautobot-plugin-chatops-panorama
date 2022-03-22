@@ -9,14 +9,12 @@ from netmiko import NetMikoTimeoutException
 from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 
 from django_rq import job
-from nautobot.dcim.models import Device, Interface
+from nautobot.dcim.models import Interface
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
 from panos.firewall import Firewall
 from panos.errors import PanDeviceError
-
-from nautobot_plugin_chatops_panorama.constant import ALLOWED_OBJECTS
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
@@ -36,28 +34,6 @@ logger = logging.getLogger("rq.worker")
 def palo_logo(dispatcher):
     """Construct an image_element containing the locally hosted Palo Alto Networks logo."""
     return dispatcher.image_element(dispatcher.static_url(PALO_LOGO_PATH), alt_text=PALO_LOGO_ALT)
-
-
-def prompt_for_panos_device_group(dispatcher, command, connection):
-    """Prompt user for panos device group to check for groups from."""
-    group_names = [device.name for device in connection.refresh_devices()]
-    dispatcher.prompt_from_menu(command, "Select Panorama Device Group", [(grp, grp) for grp in group_names])
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-def prompt_for_object_type(dispatcher, command):
-    """Prompt user for type of object to validate."""
-    dispatcher.prompt_from_menu(
-        command, "Select an allowed object type", [(object_type, object_type) for object_type in ALLOWED_OBJECTS]
-    )
-    return CommandStatusChoices.STATUS_SUCCEEDED
-
-
-def prompt_for_nautobot_device(dispatcher, command):
-    """Prompt user for firewall device within Nautobot."""
-    _devices = Device.objects.all()
-    dispatcher.prompt_from_menu(command, "Select a Nautobot Device", [(dev.name, str(dev.id)) for dev in _devices])
-    return CommandStatusChoices.STATUS_SUCCEEDED
 
 
 def prompt_for_device(dispatcher, command, conn):
@@ -529,6 +505,7 @@ def capture_traffic(
     # ---------------------------------------------------
     # Get parameters used to filter packet capture
     # ---------------------------------------------------
+    # TODO: This needs to be removed and the interfaces pulled dynamically from Panorama
     _interfaces = Interface.objects.filter(device__name=device)
     interface_list = [(intf.name, intf.name) for intf in _interfaces]
 

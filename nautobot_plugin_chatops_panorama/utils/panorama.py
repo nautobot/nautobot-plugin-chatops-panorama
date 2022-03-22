@@ -95,7 +95,15 @@ def get_devices(connection: Panorama) -> dict:
     """
     dev_list = connection.refresh_devices(include_device_groups=False)
 
-    group_names = [device.name for device in connection.refresh_devices()]
+    group_names = []
+    devices = connection.refresh_devices()
+    for device in devices:
+        try:
+            # AttributeError thrown if device is not in a device group
+            group_names.append(device.name)
+        except AttributeError:
+            continue
+
     group_xml_obj = connection.op("show devicegroups")
     groups_and_devices = {}
     for group in group_names:
@@ -111,13 +119,14 @@ def get_devices(connection: Panorama) -> dict:
         connection.add(device)
         device_system_info = device.show_system_info()["system"]
         #        system_setting = device.find("", SystemSettings)
+        # TODO: Add support for virtual firewall (vsys PA's) on same physical device
         _device_dict[device_system_info["hostname"]] = {
             "hostname": device_system_info["hostname"],
             "serial": device_system_info["serial"],
             "group_name": group_name,
             "ip_address": device_system_info["ip-address"],
             "status": device.is_active(),
-            # TODO (hackathon): Grab this via proxy to firewall to grab get_system_info()
+            # TODO: Grab this via proxy to firewall to grab get_system_info()
             "model": device_system_info["model"],
             "os_version": device_system_info["sw-version"],
         }

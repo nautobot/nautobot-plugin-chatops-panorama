@@ -77,8 +77,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9"]
-        nautobot-version: ["1.0.3"]
+        python-version: ["3.7", "3.8", "3.9"]
+        nautobot-version: ["1.2.8"]
     env:
       INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_PYTHON_VER: "${{ matrix.python-version }}"
       INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_NAUTOBOT_VER: "${{ matrix.nautobot-version }}"
@@ -121,7 +121,7 @@ jobs:
       fail-fast: true
       matrix:
         python-version: ["3.7"]
-        nautobot-version: ["1.0.3"]
+        nautobot-version: ["1.2.8"]
     env:
       INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_PYTHON_VER: "${{ matrix.python-version }}"
       INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_NAUTOBOT_VER: "${{ matrix.nautobot-version }}"
@@ -148,8 +148,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9"]
-        nautobot-version: ["1.0.3"]
+        python-version: ["3.7", "3.8", "3.9"]
+        nautobot-version: ["1.2.8"]
     env:
       INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_PYTHON_VER: "${{ matrix.python-version }}"
       INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_NAUTOBOT_VER: "${{ matrix.nautobot-version }}"

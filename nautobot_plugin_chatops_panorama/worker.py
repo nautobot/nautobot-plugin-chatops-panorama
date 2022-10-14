@@ -129,7 +129,7 @@ def validate_rule_exists(
         },
         {
             "type": "text",
-            "label": "Destination dst_port",
+            "label": "Destination Port",
             "default": "443",
         },
     ]

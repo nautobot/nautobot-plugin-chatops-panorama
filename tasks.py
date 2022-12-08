@@ -13,8 +13,14 @@ limitations under the License.
 """
 
 from distutils.util import strtobool
-from invoke import Collection, task as invoke_task
+from invoke import Collection, task as invoke_task, UnexpectedExit
+import json
 import os
+import time
+
+ENV_FILES_DIR = os.path.join(os.path.dirname(__file__), "development/")
+CREDS_ENV_FILE = os.path.join(ENV_FILES_DIR, "creds.env")
+MATTERMOST_ENV_FILE = os.path.join(ENV_FILES_DIR, "mattermost.env")
 
 
 def is_truthy(arg):
@@ -33,23 +39,20 @@ def is_truthy(arg):
 
 
 # Use pyinvoke configuration for default values, see http://docs.pyinvoke.org/en/stable/concepts/configuration.html
-# Variables may be overwritten in invoke.yml or by the environment variables INVOKE_nautobot_plugin_chatops_panorama_xxx
+# Variables may be overwritten in invoke.yml or by the environment variables INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_xxx
+compose_files = ["docker-compose.requirements.yml", "docker-compose.base.yml", "docker-compose.dev.yml"]
+compose_files.append("docker-compose.mattermost-dev.yml")
+
 namespace = Collection("nautobot_plugin_chatops_panorama")
 namespace.configure(
     {
         "nautobot_plugin_chatops_panorama": {
-            "nautobot_ver": "1.2.8",
+            "nautobot_ver": "latest",
             "project_name": "nautobot_plugin_chatops_panorama",
             "python_ver": "3.7",
             "local": False,
             "compose_dir": os.path.join(os.path.dirname(__file__), "development"),
-            "compose_files": [
-                "docker-compose.requirements.yml",
-                "docker-compose.base.yml",
-                "docker-compose.dev.yml",
-                "docker-compose.celery.yml",
-                "docker-compose.mattermost.yml",
-            ],
+            "compose_files": compose_files,
         }
     }
 )
@@ -111,6 +114,24 @@ def run_command(context, command, **kwargs):
         docker_compose(context, compose_command, pty=True)
 
 
+def load_env_dotf(dotf_path):
+    """Build dict with ENV vars loaded from .env file.
+
+    Args:
+        dotf_path (Path): Path to the .env file
+    Returns:
+        dict: ENV vars loaded from .env file.
+    """
+    env_vars = {}
+    with open(dotf_path, mode="r", encoding="utf-8") as envf:
+        for line in envf.read().splitlines():
+            if "=" in line:
+                env_key, env_val = line.split("=", maxsplit=1)
+                env_vars[env_key] = env_val
+
+    return env_vars
+
+
 # ------------------------------------------------------------------------------
 # BUILD
 # ------------------------------------------------------------------------------
@@ -123,7 +144,6 @@ def run_command(context, command, **kwargs):
 def build(context, force_rm=False, cache=True):
     """Build Nautobot docker image."""
     command = "build"
-
     if not cache:
         command += " --no-cache"
     if force_rm:
@@ -256,6 +276,85 @@ def post_upgrade(context):
     run_command(context, command)
 
 
+@task
+def setup_mattermost(context):
+    """Setup local Mattermost dev instance for testing ChatOps against."""
+    env = load_env_dotf(CREDS_ENV_FILE)
+    env.update(load_env_dotf(MATTERMOST_ENV_FILE))
+
+    docker_compose(context, "up -d mattermost")
+    print("Waiting for Mattermost server...")
+
+    attempts = 1
+    print(f"Waiting for server, attempt no: {attempts} ...")
+    while attempts < 30:
+        cmd_result = docker_compose(
+            context,
+            f"exec mattermost mmctl auth login {env['MM_SERVICESETTINGS_SITEURL']} --name local-server"
+            f" --username {env['MM_ADMIN_USERNAME']} --password {env['MM_ADMIN_PASSWORD']}",
+            pty=True,
+            hide=True,
+        )
+        if "connection refused" in cmd_result.stdout:
+            attempts += 1
+            print(f"Waiting for server, attempt no {attempts} ...")
+            time.sleep(2)
+        else:
+            break
+
+    cmd_result = docker_compose(context, "exec mattermost mmctl command list --format json", pty=True, hide=True)
+
+    existing_commands = (
+        [] if "null" in cmd_result.stdout else [command["trigger"] for command in json.loads(cmd_result.stdout)]
+    )
+
+    chatbot_commands = [cmd.strip() for cmd in env.get("CHATBOT_COMMANDS", "nautobot").split(",")]
+
+    for mm_command in chatbot_commands:
+        if mm_command in existing_commands:
+            continue
+        cmd_result = docker_compose(
+            context,
+            f"exec mattermost mmctl command create automationteam --creator {env['MM_ADMIN_USERNAME']} --title Nautobot"
+            f" --trigger-word {mm_command} --url http://nautobot:8080/api/plugins/chatops/mattermost/slash_command/"
+            " --post --autocomplete --format json",
+            pty=True,
+        )
+        command_result = json.loads(cmd_result.stdout)
+        cmd_token_file = os.path.join(ENV_FILES_DIR, f"{mm_command}_cmd_token.txt")
+        with open(cmd_token_file, mode="w", encoding="utf-8") as file_out:
+            file_out.write(command_result["token"])
+
+        try:
+            cmd_result = docker_compose(
+                context,
+                f"exec mattermost mmctl token list {env['MM_BOT_USERNAME']}",
+                pty=True,
+            )
+        # If no tokens are present exit code is set to 1 and exception is raised
+        except UnexpectedExit:
+            # Generate bot token and related DB records
+            docker_compose(
+                context,
+                f"exec mattermost mmctl token generate {env['MM_BOT_USERNAME']} Nautobot --format json",
+                pty=True,
+            )
+            # Replace bot token with a static pre-defined value
+            docker_compose(
+                context,
+                f"exec mattermost mysql --user=\"{env['MM_USERNAME']}\" --password=\"{env['MM_PASSWORD']}\" --database=\"{env['MM_DBNAME']}\""  # nosec - ignore Bandit error "B608:hardcoded_sql_expressions" as this is only a local dev/test instance
+                f" --execute=\"UPDATE UserAccessTokens SET Token = '{env['MATTERMOST_API_TOKEN']}' WHERE UserId = (SELECT Id FROM Users WHERE Username = '{env['MM_BOT_USERNAME']}');\"",
+                pty=True,
+            )
+
+    print("Waiting for Nautobot server...")
+    time.sleep(15)
+    docker_compose(
+        context,
+        f"run nautobot sh /source/development/configure_chatops.sh",
+        pty=True,
+    )
+
 # ------------------------------------------------------------------------------
 # TESTS
 # ------------------------------------------------------------------------------
@@ -312,7 +411,7 @@ def yamllint(context):
 def pydocstyle(context):
     """Run pydocstyle to validate docstring formatting adheres to NTC defined standards."""
     # We exclude the /migrations/ directory since it is autogenerated code
-    command = "pydocstyle --config=.pydocstyle.ini ."
+    command = "pydocstyle ."
     run_command(context, command)
 
 
@@ -376,8 +475,6 @@ def tests(context, failfast=False):
     black(context)
     print("Running flake8...")
     flake8(context)
-    print("Running yamllint...")
-    yamllint(context)
     print("Running bandit...")
     bandit(context)
     print("Running pydocstyle...")

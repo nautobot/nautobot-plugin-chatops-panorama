@@ -351,7 +351,7 @@ def setup_mattermost(context):
     time.sleep(15)
     docker_compose(
         context,
-        f"run nautobot sh /source/development/configure_chatops.sh",
+        "run nautobot sh /source/development/configure_chatops.sh",
         pty=True,
     )
 

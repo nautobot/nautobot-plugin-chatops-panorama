@@ -6,6 +6,7 @@ import defusedxml.ElementTree as ET
 import requests
 
 from netmiko import ConnectHandler
+from panos.errors import PanDeviceXapiError
 from panos.firewall import Firewall
 from panos.panorama import Panorama
 from panos.policies import Rulebase, SecurityRule
@@ -115,21 +116,25 @@ def get_devices(connection: Panorama) -> dict:
 
     _device_dict = {}
     for device in dev_list:
-        group_name = _get_group(groups_and_devices, device.serial)
-        connection.add(device)
-        device_system_info = device.show_system_info()["system"]
-        #        system_setting = device.find("", SystemSettings)
-        # TODO: Add support for virtual firewall (vsys PA's) on same physical device
-        _device_dict[device_system_info["hostname"]] = {
-            "hostname": device_system_info["hostname"],
-            "serial": device_system_info["serial"],
-            "group_name": group_name,
-            "ip_address": device_system_info["ip-address"],
-            "status": device.is_active(),
-            # TODO: Grab this via proxy to firewall to grab get_system_info()
-            "model": device_system_info["model"],
-            "os_version": device_system_info["sw-version"],
-        }
+        try:
+            group_name = _get_group(groups_and_devices, device.serial)
+            connection.add(device)
+            device_system_info = device.show_system_info()["system"]
+            #        system_setting = device.find("", SystemSettings)
+            # TODO: Add support for virtual firewall (vsys PA's) on same physical device
+            _device_dict[device_system_info["hostname"]] = {
+                "hostname": device_system_info["hostname"],
+                "serial": device_system_info["serial"],
+                "group_name": group_name,
+                "ip_address": device_system_info["ip-address"],
+                "status": device.is_active(),
+                # TODO: Grab this via proxy to firewall to grab get_system_info()
+                "model": device_system_info["model"],
+                "os_version": device_system_info["sw-version"],
+            }
+        except PanDeviceXapiError as err:
+            print(f"Unable to pull info for {device}. {err}")
+
     return _device_dict
 
 

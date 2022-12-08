@@ -476,6 +476,8 @@ def tests(context, failfast=False):
     black(context)
     print("Running flake8...")
     flake8(context)
+    print("Running yamllint...")
+    yamllint(context)
     print("Running bandit...")
     bandit(context)
     print("Running pydocstyle...")

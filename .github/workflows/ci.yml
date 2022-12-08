@@ -158,7 +158,7 @@ jobs:
       - "unittest"
     name: "Publish to GitHub"
     permissions:
-      contents: write
+      contents: "write"
     runs-on: "ubuntu-20.04"
     if: "startsWith(github.ref, 'refs/tags/v')"
     steps:
@@ -214,12 +214,12 @@ jobs:
         with:
           user: "__token__"
           password: "${{ secrets.PYPI_API_TOKEN }}"
-  # ## If you want to set a notification to a Slack channel, uncomment this
-  # ## job. This job requires the SLACK_WEBHOOK_URL secret. Follow these
-  # ## steps to get the webhook URL:
-  # ## https://api.slack.com/messaging/webhooks
-  # ## Update the SLACK_MESSAGE variable if you want to customize the
-  # ## message.
+  ## If you want to set a notification to a Slack channel, uncomment this
+  ## job. This job requires the SLACK_WEBHOOK_URL secret. Follow these
+  ## steps to get the webhook URL:
+  ## https://api.slack.com/messaging/webhooks
+  ## Update the SLACK_MESSAGE variable if you want to customize the
+  ## message.
   # slack-notify:
   #   needs:
   #     - "publish_gh"

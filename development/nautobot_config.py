@@ -8,7 +8,7 @@ import os
 import sys
 
 from django.core.exceptions import ImproperlyConfigured
-from nautobot.core import settings
+from nautobot.core.settings import *  # noqa F401,F403 pylint: disable=wildcard-import,unused-wildcard-import
 from nautobot.core.settings_funcs import is_truthy
 
 # Enforce required configuration parameters
@@ -36,47 +36,64 @@ DATABASES = {
     "default": {
         "NAME": os.getenv("NAUTOBOT_DB_NAME", "nautobot"),  # Database name
         "USER": os.getenv("NAUTOBOT_DB_USER", ""),  # Database username
-        "PASSWORD": os.getenv("NAUTOBOT_DB_PASSWORD", ""),  # Datbase password
+        "PASSWORD": os.getenv("NAUTOBOT_DB_PASSWORD", ""),  # Database password
         "HOST": os.getenv("NAUTOBOT_DB_HOST", "localhost"),  # Database server
         "PORT": os.getenv("NAUTOBOT_DB_PORT", ""),  # Database port (leave blank for default)
-        "CONN_MAX_AGE": int(os.environ.get("NAUTOBOT_DB_TIMEOUT", 300)),  # Database timeout
-        "ENGINE": os.getenv("NAUTOBOT_DB_ENGINE", "django.db.backends.postgresql"),  # Database driver
+        "CONN_MAX_AGE": int(os.getenv("NAUTOBOT_DB_TIMEOUT", 300)),  # Database timeout
+        "ENGINE": os.getenv(
+            "NAUTOBOT_DB_ENGINE", "django.db.backends.postgresql"
+        ),  # Database driver ("mysql" or "postgresql")
     }
 }
 
-# Redis variables
-REDIS_HOST = os.getenv("NAUTOBOT_REDIS_HOST", "localhost")
-REDIS_PORT = os.getenv("NAUTOBOT_REDIS_PORT", "6379")
-REDIS_PASSWORD = os.getenv("NAUTOBOT_REDIS_PASSWORD", "")
+# Ensure proper Unicode handling for MySQL
+#
+if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
+    DATABASES["default"]["OPTIONS"] = {"charset": "utf8mb4"}
 
-# Check for Redis SSL
-REDIS_SCHEME = "redis"
-REDIS_SSL = is_truthy(os.getenv("NAUTOBOT_REDIS_SSL", "False"))
-if REDIS_SSL:
-    REDIS_SCHEME = "rediss"
+# duplicate queues setting from RQ for Celery
+CELERY_QUEUES = {
+    "default": {
+        "USE_REDIS_CACHE": "default",
+        "DEFAULT_TIMEOUT": 3600,
+    },
+    "check_releases": {
+        "USE_REDIS_CACHE": "default",
+    },
+    "custom_fields": {
+        "USE_REDIS_CACHE": "default",
+    },
+    "webhooks": {
+        "USE_REDIS_CACHE": "default",
+    },
+}
 
 # The django-redis cache is used to establish concurrent locks using Redis. The
 # django-rq settings will use the same instance/database by default.
-#
-# This "default" server is now used by RQ_QUEUES.
-# >> See: nautobot.core.settings.RQ_QUEUES
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_SCHEME}://{REDIS_HOST}:{REDIS_PORT}/0",
+        "LOCATION": parse_redis_connection(redis_database=0),
         "TIMEOUT": 300,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "PASSWORD": REDIS_PASSWORD,
+            "PASSWORD": os.getenv("NAUTOBOT_REDIS_PASSWORD", ""),
         },
     }
 }
 
-# RQ_QUEUES is not set here because it just uses the default that gets imported
-# up top via `from nautobot.core.settings import *`.
+# Redis connection to use for caching.
 
-# REDIS CACHEOPS
-CACHEOPS_REDIS = f"{REDIS_SCHEME}://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+CACHEOPS_REDIS = os.getenv("NAUTOBOT_CACHEOPS_REDIS", parse_redis_connection(redis_database=1))
+
+# Celery broker URL used to tell workers where queues are located
+
+CELERY_BROKER_URL = os.getenv("NAUTOBOT_CELERY_BROKER_URL", parse_redis_connection(redis_database=0))
+
+# Celery results backend URL to tell workers where to publish task results
+
+CELERY_RESULT_BACKEND = os.getenv("NAUTOBOT_CELERY_RESULT_BACKEND", parse_redis_connection(redis_database=0))
 
 # This key is used for secure generation of random numbers and strings. It must never be exposed outside of this file.
 # For optimal security, SECRET_KEY should be at least 50 characters in length and contain a mix of letters, numbers, and
@@ -358,5 +375,5 @@ DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda _request: DEBUG and not 
 
 if DJANGO_TOOLBAR_ENABLED and "debug_toolbar" not in EXTRA_INSTALLED_APPS:
     EXTRA_INSTALLED_APPS.append("debug_toolbar")
-if DJANGO_TOOLBAR_ENABLED and "debug_toolbar.middleware.DebugToolbarMiddleware" not in settings.MIDDLEWARE:  # noqa F405
-    settings.MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa F405
+if DJANGO_TOOLBAR_ENABLED and "debug_toolbar.middleware.DebugToolbarMiddleware" not in MIDDLEWARE:  # noqa F405
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa F405

@@ -14,16 +14,16 @@ echo "Updating CA certificates"
 update-ca-certificates --fresh >/dev/null
 
 if [ ! -e "/mm/mattermost-data/users" ]; then
-    echo "-- Adding ntc admin user --"
-    mattermost user create --system_admin --email "ntc@ntc.com" --username "ntc" --password "N3t2c0d3!!" &> /dev/null
-	echo "-- Adding nautobot user --"
-	mattermost user create --system_admin --email "nautobot@ntc.com" --username "nautobot" --password "P455word!!" &> /dev/null
+    echo "-- Adding admin user --"
+    mattermost user create --system_admin --email "admin@example.com" --username "admin" --password "Nautobot123!!" &> /dev/null
+	echo "-- Adding ntcbot user --"
+	mattermost user create --system_admin --email "nautobot-bot@example.com" --username "nautobot-bot" --password "Nautobot123!!" &> /dev/null
 	echo "-- Converting user to bot --"
-	mattermost user convert nautobot --bot
-	echo "-- Creating NTC team --"
-	mattermost team create --name ntc --display_name "NTC"
-	echo "-- Adding users to NTC team"
-	mattermost team add NTC ntc nautobot
+	mattermost user convert ntcbot --bot
+	echo "-- Creating automationteam team --"
+	mattermost team create --name automationteam --display_name "Automation Team"
+	echo "-- Adding users to automationteam team"
+	mattermost team add automationteam admin nautobot-bot
 	echo "Starting platform"
 	cd mattermost
 	exec mattermost --config=config/config_docker.json

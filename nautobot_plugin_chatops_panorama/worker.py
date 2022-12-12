@@ -590,8 +590,8 @@ def capture_traffic(
         )
 
     # Validate dport
+    dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
     try:
-        dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
         if not 1 <= int(dport) <= 65535:
             raise TypeError
     except ValueError:

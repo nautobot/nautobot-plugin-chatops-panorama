@@ -2,12 +2,11 @@
 extends: "default"
 rules:
   comments: "enable"
-  comments-indentation:
-    level: "warning"
   empty-values: "disable"
   indentation:
     indent-sequences: "consistent"
   line-length: "disable"
   quoted-strings:
     quote-type: "double"
-  truthy: "disable"
+ignore: |
+  .venv/

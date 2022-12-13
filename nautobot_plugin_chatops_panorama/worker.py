@@ -19,6 +19,7 @@ from panos.errors import PanDeviceError
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
     get_devices_from_pano,
+    get_devicegroups_from_pano,
     get_rule_match,
     start_packet_capture,
     get_all_rules,
@@ -123,6 +124,34 @@ def get_devices(dispatcher, **kwargs):
         ["Hostname", "Serial", "DeviceGroup", "IP Address", "Active", "Model", "OS Version"],
         [list(device.values()) for _, device in devices.items()],
         title="Device Inventory",
+    )
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def get_devicegroups(dispatcher, **kwargs):
+    """Get information about DeviceGroups and their associated devices from Panorama."""
+    pano = connect_panorama()
+    dispatcher.send_markdown(
+        f"Hey {dispatcher.user_mention()}, I'm gathering information about the DeviceGroups connected to this Panorama.",
+        ephemeral=True,
+    )
+    devicegroups = get_devicegroups_from_pano(connection=pano)
+    dispatcher.send_markdown(
+        f"{dispatcher.user_mention()}, here is the information about the configured DeviceGroups as requested.",
+        ephemeral=True,
+    )
+    message = ""
+    for group_name, group_info in devicegroups.items():
+        message += f"{group_name}\n"
+        if len(group_info["devices"]) > 0:
+            message += "\n".join(group_info["devices"])
+        else:
+            message += f"No connected devices found for {group_name}.\n"
+    dispatcher.send_snippet(
+        message,
+        title="DeviceGroups",
+        ephemeral=True,
     )
     return CommandStatusChoices.STATUS_SUCCEEDED
 

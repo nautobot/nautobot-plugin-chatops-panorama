@@ -116,6 +116,29 @@ def get_devices_from_pano(connection: Panorama) -> dict:
     return _device_dict
 
 
+def get_devicegroups_from_pano(connection: Panorama) -> dict:
+    """Method to obtain DeviceGroups and associated information for devices."""
+    _group_dict = {}
+    devicegroups = connection.refresh_devices()
+    for group in devicegroups:
+        if group.name not in _group_dict:
+            _group_dict[group.name] = {"devices": []}
+        for device in group.children:
+            dev = None
+            try:
+                connection.add(device)
+                dev = device.show_system_info()["system"]
+            except PanDeviceXapiError as err:
+                print(f"Unable to pull info for {device}. {err}")
+            if dev:
+                _group_dict[group.name]["devices"].append(
+                    f"Hostname: {dev['hostname']}\nAddress: {dev['ip-address']}\nSerial: {dev['serial']}\nModel: {dev['model']}\nVersion: {dev['sw-version']}\n\n"
+                )
+            else:
+                _group_dict[group.name]["devices"].append(f"Unable to pull info for {device.serial}.\n\n")
+    return _group_dict
+
+
 def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
     """Starts or stops packet capturing on the Managed FW.
 

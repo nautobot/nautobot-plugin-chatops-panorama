@@ -18,7 +18,7 @@ from panos.errors import PanDeviceError
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
-    get_devices,
+    get_devices_from_pano,
     get_rule_match,
     start_packet_capture,
     get_all_rules,
@@ -38,7 +38,7 @@ def palo_logo(dispatcher):
 
 def prompt_for_device(dispatcher, command, conn):
     """Prompt the user to select a Palo Alto device."""
-    _devices = get_devices(connection=conn)
+    _devices = get_devices_from_pano(connection=conn)
     dispatcher.prompt_from_menu(command, "Select a Device", [(dev, dev) for dev in _devices])
     return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -168,7 +168,7 @@ def validate_rule_exists(
         )
         return CommandStatusChoices.STATUS_ERRORED
 
-    serial = get_devices(connection=pano).get(device, {}).get("serial")
+    serial = get_devices_from_pano(connection=pano).get(device, {}).get("serial")
     if not serial:
         return dispatcher.send_warning(f"The device {device} was not found.")
 
@@ -287,7 +287,7 @@ def upload_software(dispatcher, device, version, **kwargs):
             dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
         )
 
-    devs = get_devices(connection=pano)
+    devs = get_devices_from_pano(connection=pano)
     dispatcher.send_markdown(
         f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True
     )
@@ -341,7 +341,7 @@ def install_software(dispatcher, device, version, **kwargs):
             dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
         )
 
-    devs = get_devices(connection=pano)
+    devs = get_devices_from_pano(connection=pano)
     dispatcher.send_markdown(
         f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True
     )
@@ -645,7 +645,7 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    devices = get_devices(connection=pano)
+    devices = get_devices_from_pano(connection=pano)
     try:
         # TODO: This gathers the internal IP address that Panorama sees. However if the firewall is accessible to Nautobot via a different IP address (e.g. external), this fails.
         #       Add support for multiple possible IP addresses here

@@ -85,7 +85,7 @@ def get_rule_match(five_tuple: dict, serial: str) -> dict:
     return match
 
 
-def get_devices(connection: Panorama) -> dict:
+def get_devices_from_pano(connection: Panorama) -> dict:
     """Method to obtain the devices connected to Panorama.
 
     Args:

@@ -108,6 +108,26 @@ def panorama(subcommand, **kwargs):
 
 
 @subcommand_of("panorama")
+def get_devices(dispatcher, **kwargs):
+    """Get information about connected devices from Panorama."""
+    pano = connect_panorama()
+    dispatcher.send_markdown(
+        f"Hey {dispatcher.user_mention()}, I'm gathering information about the devices connected to this Panorama as requested.",
+        ephemeral=True,
+    )
+    devices = get_devices_from_pano(connection=pano)
+    dispatcher.send_markdown(
+        f"{dispatcher.user_mention()}, here are the connected devices as requested.", ephemeral=True
+    )
+    dispatcher.send_large_table(
+        ["Hostname", "Serial", "DeviceGroup", "IP Address", "Active", "Model", "OS Version"],
+        [list(device.values()) for _, device in devices.items()],
+        title="Device Inventory",
+    )
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
 def validate_rule_exists(
     dispatcher, device, src_ip, dst_ip, protocol, dst_port
 ):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches

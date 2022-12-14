@@ -49,22 +49,6 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def _get_group(groups: dict, serial: str) -> str:
-    """Sort through fetched groups and serials and return group.
-
-    Args:
-        groups (dict): Group names as keys and serial numbers in a list
-        serial (str): Serial to search for within group serial number lists
-
-    Returns:
-        group_name (str): Name of group serial is part of or None if serial not in a group
-    """
-    for group_name, serial_numbers in groups.items():
-        if serial in serial_numbers:
-            return group_name
-    return None
-
-
 def get_rule_match(five_tuple: dict, serial: str) -> dict:
     """Method to obtain the devices connected to Panorama.
 

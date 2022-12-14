@@ -223,7 +223,11 @@ def get_all_rules(device: str, pano: Panorama) -> list:
     #     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     #     device = pano.add(devices[0])
     rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
+    try:
+        rules = SecurityRule.refreshall(rulebase)
+    except PanDeviceXapiError as err:
+        logger.warning("Unable to find information about %s as it's not connected to Panorama. %s", device, err)
+        rules = []
     return rules
 
 

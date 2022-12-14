@@ -115,7 +115,7 @@ def get_devices_from_pano(connection: Panorama) -> dict:
                     "os_version": device_system_info["sw-version"],
                 }
             except PanDeviceXapiError as err:
-                logger.warning(f"Unable to pull info for {device}. {err}")
+                logger.warning("Unable to pull info for %s. %s", device, err)
     return _device_dict
 
 

@@ -29,7 +29,7 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
 PALO_LOGO_PATH = "nautobot_palo/palo_transparent.png"
 PALO_LOGO_ALT = "Palo Alto Networks Logo"
 
-logger = logging.getLogger("rq.worker")
+logger = logging.getLogger(__name__)
 
 
 def palo_logo(dispatcher):

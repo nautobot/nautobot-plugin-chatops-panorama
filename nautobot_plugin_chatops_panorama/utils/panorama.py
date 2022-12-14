@@ -1,5 +1,5 @@
 """Functions used for interacting with Panroama."""
-
+import logging
 import time
 
 import defusedxml.ElementTree as ET
@@ -13,6 +13,9 @@ from panos.policies import Rulebase, SecurityRule
 from requests.exceptions import RequestException
 
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:

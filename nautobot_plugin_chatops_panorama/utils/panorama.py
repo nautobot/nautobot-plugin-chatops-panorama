@@ -116,7 +116,7 @@ def get_devicegroups_from_pano(connection: Panorama) -> dict:
                 connection.add(device)
                 dev = device.show_system_info()["system"]
             except PanDeviceXapiError as err:
-                print(f"Unable to pull info for {device}. {err}")
+                logger.warning("Unable to pull info for %s. %s", device, err)
             if dev:
                 _group_dict[group.name]["devices"].append(
                     f"Hostname: {dev['hostname']}\nAddress: {dev['ip-address']}\nSerial: {dev['serial']}\nModel: {dev['model']}\nVersion: {dev['sw-version']}\n\n"

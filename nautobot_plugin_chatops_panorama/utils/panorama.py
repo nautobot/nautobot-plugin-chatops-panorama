@@ -119,10 +119,14 @@ def get_devicegroups_from_pano(connection: Panorama) -> dict:
                 logger.warning("Unable to pull info for %s. %s", device, err)
             if dev:
                 _group_dict[group.name]["devices"].append(
-                    f"Hostname: {dev['hostname']}\nAddress: {dev['ip-address']}\nSerial: {dev['serial']}\nModel: {dev['model']}\nVersion: {dev['sw-version']}\n\n"
+                    {
+                        "hostname": dev["hostname"],
+                        "address": dev["ip-address"],
+                        "serial": dev["serial"],
+                        "model": dev["model"],
+                        "version": dev["sw-version"],
+                    }
                 )
-            else:
-                _group_dict[group.name]["devices"].append(f"Unable to pull info for {device.serial}.\n\n")
     return _group_dict
 
 
@@ -206,23 +210,28 @@ def parse_all_rule_names(xml_rules: str) -> list:
     return rule_names
 
 
-def get_all_rules(device: str, pano: Panorama) -> list:
+def get_all_rules(device_name: str, pano: Panorama) -> list:
     """Get all currently configured rules.
 
     Args:
-        device (str): Name of firewall device in Panorama
+        device_name (str): Name of firewall device in Panorama
         pano (Panorama): Panorama connection
 
     Returns:
         list: List of rules
     """
-    devices = pano.refresh_devices(include_device_groups=False)
-    device = pano.add(devices[0])
-    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
-    # if not device:
-    #     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
-    #     device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
+    firewalls = pano.refresh_devices(include_device_groups=False)
+    device = None
+    for firewall in firewalls:
+        try:
+            pano.add(firewall)
+            dev = firewall.show_system_info()["system"]
+            if dev["hostname"] == device_name:
+                device = firewall
+        except PanDeviceXapiError as err:
+            logger.warning("Unable to pull info for %s. %s", device_name, err)
+    dev = pano.add(device)
+    rulebase = dev.add(Rulebase())
     try:
         rules = SecurityRule.refreshall(rulebase)
     except PanDeviceXapiError as err:

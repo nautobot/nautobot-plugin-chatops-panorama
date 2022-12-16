@@ -145,7 +145,8 @@ def get_devicegroups(dispatcher, **kwargs):
     for group_name, group_info in devicegroups.items():
         message += f"{group_name}\n"
         if len(group_info["devices"]) > 0:
-            message += "\n".join(group_info["devices"])
+            for dev in group_info["devices"]:
+                message += f"Hostname: {dev['hostname']}\nAddress: {dev['address']}\nSerial: {dev['serial']}\nModel: {dev['model']}\nVersion: {dev['version']}\n\n"
         else:
             message += f"No connected devices found for {group_name}.\n"
     dispatcher.send_snippet(

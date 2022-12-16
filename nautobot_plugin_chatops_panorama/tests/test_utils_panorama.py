@@ -60,13 +60,25 @@ class TestPanoramaUtils(TestCase):
         mock_group = MagicMock()
         mock_group.name = "Test Group"
         mock_group.children = [mock_device]
+        mock_empty_group = MagicMock()
+        mock_empty_group.name = "Empty Group"
+        mock_empty_group.children = []
         mock_conn = MagicMock()
         mock_conn.refresh_devices = MagicMock()
-        mock_conn.refresh_devices.return_value = [mock_group]
+        mock_conn.refresh_devices.return_value = [mock_group, mock_empty_group]
         expected = {
             "Test Group": {
-                "devices": ["Hostname: Test\nAddress: 1.1.1.1/32\nSerial: 123456\nModel: PAN-2110\nVersion: 10.0.2\n\n"]
-            }
+                "devices": [
+                    {
+                        "hostname": "Test",
+                        "address": "1.1.1.1/32",
+                        "serial": 123456,
+                        "model": "PAN-2110",
+                        "version": "10.0.2",
+                    }
+                ]
+            },
+            "Empty Group": {"devices": []},
         }
         result = get_devicegroups_from_pano(connection=mock_conn)
         self.assertEqual(result, expected)

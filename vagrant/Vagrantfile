@@ -1,0 +1,14 @@
+Vagrant.configure("2") do |config|
+  VAGRANT_UID = 1001
+  VAGRANT_GID = 1001
+  config.vm.box = "bento/ubuntu-20.04"
+  config.vm.network "forwarded_port", guest: 8065, host: 8065, host_ip: "127.0.0.1"
+  config.vm.network "forwarded_port", guest: 8080, host: 8080, host_ip: "127.0.0.1"
+  config.vm.synced_folder "../", "/code", owner: VAGRANT_UID, group: VAGRANT_GID, mount_options:["dmode=775,fmode=777"]
+  config.vm.provision :shell, path: "install.sh", privileged: false
+  # config.vm.provision "ansible_local" do |ansible|
+  #   ansible.become = false
+  #   ansible.galaxy_role_file = "requirements.yml"
+  #   ansible.playbook = "setup.yml"
+  # end
+end

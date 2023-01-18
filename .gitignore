@@ -310,3 +310,8 @@ public
 # Ignore generated files from chatops commands
 *.csv
 *.pcap
+
+# vagrant
+vagrant/*.log
+vagrant/roles
+vagrant/.vagrant

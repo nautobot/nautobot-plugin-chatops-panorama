@@ -5,24 +5,22 @@ import re
 from ipaddress import ip_network
 from typing import List, Tuple, Union
 
-from netmiko import NetMikoTimeoutException
-from netutils.protocol_mapper import PROTO_NAME_TO_NUM
-
 from django_rq import job
 from nautobot.dcim.models import Interface
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
-
-from panos.firewall import Firewall
+from netmiko import NetMikoTimeoutException
+from netutils.protocol_mapper import PROTO_NAME_TO_NUM
 from panos.errors import PanDeviceError
+from panos.firewall import Firewall
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
+    get_all_rules,
     get_devices,
     get_rule_match,
-    start_packet_capture,
-    get_all_rules,
     split_rules,
+    start_packet_capture,
 )
 
 PALO_LOGO_PATH = "nautobot_palo/palo_transparent.png"
@@ -98,7 +96,10 @@ def capture_packet_str_validation(
     except AttributeError:
         # User may have supplied an invalid value, or there was an error parsing the value given as a string
         #   Ideally this should not trigger
-        return notify_user_of_error(dispatcher, f"{variable_description} is invalid."), False
+        return (
+            notify_user_of_error(dispatcher, f"{variable_description} is invalid."),
+            False,
+        )
 
 
 @job("default")
@@ -146,7 +147,10 @@ def validate_rule_exists(
 
     if not all([src_ip, dst_ip, protocol, dst_port]):
         dispatcher.multi_input_dialog(
-            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+            "panorama",
+            f"validate-rule-exists {device}",
+            "Verify if rule exists",
+            dialog_list,
         )
         return CommandStatusChoices.STATUS_SUCCEEDED
 
@@ -157,14 +161,20 @@ def validate_rule_exists(
             f"Source IP {src_ip} is not a valid host or CIDR. Please specify a valid host IP address or IP network in CIDR notation."
         )
         dispatcher.multi_input_dialog(
-            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+            "panorama",
+            f"validate-rule-exists {device}",
+            "Verify if rule exists",
+            dialog_list,
         )
         return CommandStatusChoices.STATUS_ERRORED
 
     if not is_valid_cidr(dst_ip) and src_ip.lower() != "any":
         dispatcher.send_warning()
         dispatcher.multi_input_dialog(
-            "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
+            "panorama",
+            f"validate-rule-exists {device}",
+            "Verify if rule exists",
+            dialog_list,
         )
         return CommandStatusChoices.STATUS_ERRORED
 
@@ -182,7 +192,7 @@ def validate_rule_exists(
 
     if matching_rules:
         all_rules = []
-        for rule in get_all_rules(device, pano):
+        for rule in get_all_rules(serial, pano):
             if rule.name == matching_rules[0]["name"]:
                 rule_list = []
                 rule_list.append(rule.name)
@@ -284,12 +294,16 @@ def upload_software(dispatcher, device, version, **kwargs):
 
     if "menu_offset" in version:
         return prompt_for_versions(
-            dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
+            dispatcher,
+            f"panorama upload-software {device}",
+            pano,
+            prompt_offset=re.findall(r"\d+", version)[0],
         )
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(
-        f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True
+        f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.",
+        ephemeral=True,
     )
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
@@ -338,12 +352,16 @@ def install_software(dispatcher, device, version, **kwargs):
 
     if "menu_offset" in version:
         return prompt_for_versions(
-            dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
+            dispatcher,
+            f"panorama upload-software {device}",
+            pano,
+            prompt_offset=re.findall(r"\d+", version)[0],
         )
 
     devs = get_devices(connection=pano)
     dispatcher.send_markdown(
-        f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True
+        f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.",
+        ephemeral=True,
     )
     _firewall = Firewall(serial=devs[device]["serial"])
     pano.add(_firewall)
@@ -387,8 +405,10 @@ def get_device_rules(dispatcher, device, **kwargs):
         f"Standby {dispatcher.user_mention()}, I'm getting the rules for device {device}.",
         ephemeral=True,
     )
-
-    rules = get_all_rules(device, pano)
+    serial = get_devices(connection=pano).get(device, {}).get("serial")
+    if not serial:
+        return dispatcher.send_warning(f"The device {device} was not found.")
+    rules = get_all_rules(serial, pano)
 
     all_rules = []
     for rule in rules:
@@ -437,7 +457,10 @@ def export_device_rules(dispatcher, device, **kwargs):
     logger.debug("Running /panorama export-device-rules, device=%s", device)
 
     pano = connect_panorama()
-    rules = get_all_rules(device, pano)
+    serial = get_devices(connection=pano).get(device, {}).get("serial")
+    if not serial:
+        return dispatcher.send_warning(f"The device {device} was not found.")
+    rules = get_all_rules(serial, pano)
 
     file_name = f"{device}-device-rules.csv"
 
@@ -486,7 +509,12 @@ def capture_traffic(
     logger.info("Starting capture_traffic()")
 
     valid_ip_protocols = [("ANY", "any"), ("TCP", "6"), ("UDP", "17")]
-    valid_stages = [("Receive", "receive"), ("Transmit", "transmit"), ("Drop", "drop"), ("Firewall", "firewall")]
+    valid_stages = [
+        ("Receive", "receive"),
+        ("Transmit", "transmit"),
+        ("Drop", "drop"),
+        ("Firewall", "firewall"),
+    ]
 
     if all([device, snet, dnet, dport, intf_name, ip_proto, stage, capture_seconds]):
         dispatcher.send_markdown(
@@ -577,7 +605,8 @@ def capture_traffic(
         ip_network(snet)
     except ValueError:
         return notify_user_of_error(
-            dispatcher, f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation."
+            dispatcher,
+            f"Source Network {snet} is not a valid CIDR, please specify a valid network in CIDR notation.",
         )
 
     # Validate dnet
@@ -605,7 +634,11 @@ def capture_traffic(
     # Validate intf_name
     # If the user supplied an interface name, this uses the actual one present and ignores case sensitivity
     intf_name, validation_result = capture_packet_str_validation(
-        dispatcher, intf_name, interface_list, "Interface", f"Interface {intf_name} was not found on device {device}."
+        dispatcher,
+        intf_name,
+        interface_list,
+        "Interface",
+        f"Interface {intf_name} was not found on device {device}.",
     )
     if not validation_result:
         return intf_name
@@ -640,7 +673,10 @@ def capture_traffic(
         if not 1 <= int(capture_seconds) <= 120:
             raise ValueError
     except ValueError:
-        return notify_user_of_error(dispatcher, "Capture Seconds must be specified as a number in the range 1-120.")
+        return notify_user_of_error(
+            dispatcher,
+            "Capture Seconds must be specified as a number in the range 1-120.",
+        )
 
     # ---------------------------------------------------
     # Start Packet Capture on Device
@@ -650,7 +686,11 @@ def capture_traffic(
         # TODO: This gathers the internal IP address that Panorama sees. However if the firewall is accessible to Nautobot via a different IP address (e.g. external), this fails.
         #       Add support for multiple possible IP addresses here
         device_ip = devices[device]["ip_address"]
-        logger.info("Attempting packet capture to device %s via IP address %s.", device, device_ip)
+        logger.info(
+            "Attempting packet capture to device %s via IP address %s.",
+            device,
+            device_ip,
+        )
     except KeyError:
         return notify_user_of_error(dispatcher, f"No IP address found assigned to device {device} in Panorama.")
 
@@ -675,7 +715,10 @@ def capture_traffic(
             },
         )
     except NetMikoTimeoutException:
-        return notify_user_of_error(dispatcher, f"Unable to connect to device {device} via IP address {device_ip}.")
+        return notify_user_of_error(
+            dispatcher,
+            f"Unable to connect to device {device} via IP address {device_ip}.",
+        )
 
     blocks = [
         *dispatcher.command_response_header(

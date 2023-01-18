@@ -1,14 +1,14 @@
 """Functions used for interacting with Panroama."""
 
 import time
+from typing import List, Optional
 
 import defusedxml.ElementTree as ET
 import requests
-
 from netmiko import ConnectHandler
 from panos.firewall import Firewall
-from panos.panorama import Panorama
-from panos.policies import Rulebase, SecurityRule
+from panos.panorama import DeviceGroup, Panorama
+from panos.policies import PostRulebase, PreRulebase, Rulebase, SecurityRule
 from requests.exceptions import RequestException
 
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
@@ -25,7 +25,11 @@ def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
     """
     url = url.rstrip("/")
 
-    params = {"type": "keygen", "user": PLUGIN_CFG["panorama_user"], "password": PLUGIN_CFG["panorama_password"]}
+    params = {
+        "type": "keygen",
+        "user": PLUGIN_CFG["panorama_user"],
+        "password": PLUGIN_CFG["panorama_password"],
+    }
 
     response = requests.get(f"https://{url}/api/", params=params, verify=False)  # nosec
     if response.status_code != 200:
@@ -194,7 +198,12 @@ def _get_pcap(capture_filename: str, ip_address: str):
     """
     url = f"https://{ip_address}/api/"
 
-    params = {"key": get_api_key_api(), "type": "export", "category": "filters-pcap", "from": "1.pcap"}
+    params = {
+        "key": get_api_key_api(),
+        "type": "export",
+        "category": "filters-pcap",
+        "from": "1.pcap",
+    }
 
     respone = requests.get(url, params=params, verify=False)  # nosec
 
@@ -213,7 +222,7 @@ def parse_all_rule_names(xml_rules: str) -> list:
     return rule_names
 
 
-def get_all_rules(device: str, pano: Panorama) -> list:
+def get_all_rules(serial: str, pano: Panorama) -> List[SecurityRule]:
     """Get all currently configured rules.
 
     Args:
@@ -223,14 +232,47 @@ def get_all_rules(device: str, pano: Panorama) -> list:
     Returns:
         list: List of rules
     """
-    devices = pano.refresh_devices(include_device_groups=False)
-    device = pano.add(devices[0])
     # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
     # if not device:
     #     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     #     device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
+
+    rules: List[SecurityRule] = []
+    # getting the device using this method gives more data about the device.
+    device_groups = pano.refresh_devices()
+    device: List[Firewall] = [
+        firewall for device_group in device_groups for firewall in device_group.children if firewall.serial == serial
+    ]
+    if device:
+        target = device[0]
+        # shared pre/post rules
+        shared_pre_rulebase = pano.add(PreRulebase())
+        shared_pre_rules = SecurityRule.refreshall(shared_pre_rulebase)
+        shared_post_rulebase = pano.add(PostRulebase())
+        shared_post_rules = SecurityRule.refreshall(shared_post_rulebase)
+        if shared_pre_rules:
+            rules.extend(shared_pre_rules)
+        if shared_post_rules:
+            rules.extend(shared_post_rules)
+
+        # device groups pre/post rules
+        device_group: Optional[DeviceGroup] = target.devicegroup()
+        if device_group:
+            device_group_pre_rulebase = device_group.add(PreRulebase())
+            device_group_pre_rules = SecurityRule.refreshall(device_group_pre_rulebase)
+            device_group_post_rulebase = device_group.add(PostRulebase())
+            device_group_post_rules = SecurityRule.refreshall(device_group_post_rulebase)
+            if device_group_pre_rules:
+                rules.extend(device_group_pre_rules)
+            if device_group_post_rules:
+                rules.extend(device_group_post_rules)
+
+        # device local rulebase
+        local_rb = target.add(Rulebase())
+        local_rules = SecurityRule.refreshall(local_rb)
+        if local_rules:
+            rules.extend(local_rules)
+
     return rules
 
 

@@ -270,7 +270,7 @@ Connect to the vagrant box.
 ```bash
 ➜ vagrant ssh
 ```
-:information: After connecting to the vagrant box all the other commands listed before will work. The codebase is mounted at `/code` :information
+:information: After connecting to the vagrant box all the other commands listed before will work. The codebase is mounted at `/code` :information:
 
 
 Destroy the vagrant box

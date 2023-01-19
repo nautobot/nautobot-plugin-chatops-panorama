@@ -5,6 +5,7 @@
   - [Poetry](#poetry)
   - [Full Docker Development Environment](#full-docker-development-environment)
     - [Invoke (Fully Automated) - Local Dev Environment Setup With Mattermost](#invoke-fully-automated---local-dev-environment-setup-with-mattermost)
+    - [Vagrant (Fully Automated) - Local Dev Environment Setup With Mattermost](#vagrant-fully-automated)
     - [Invoke (Manual/Non-Mattermost) - Building the Docker Image](#invoke-manualnon-mattermost---building-the-docker-image)
     - [Invoke (Manual/Non-Mattermost) - Starting the Development Environment](#invoke-manualnon-mattermost---starting-the-development-environment)
     - [Invoke (Manual/Non-Mattermost) - Creating a Superuser](#invoke-manualnon-mattermost---creating-a-superuser)
@@ -68,7 +69,7 @@ There is no additional setup needed. After a few seconds, you can test this depl
 
 **Mattermost**
 
-- Go to http://localhost:8065/automationteam/messages/@ntcbot
+- Go to http://localhost:8065/automationteam/messages/@nautobot-bot
 - Log in using the default `admin/Nautobot123!!` credentials.
   - These are set in `development/development.env`, and may have been changed.
 - Send a direct message to @ntcbot. You should be able to run an example command `/panorama hello-world test`
@@ -249,6 +250,32 @@ To run an individual test, you can run any or all of the following:
 ➜ invoke flake8
 ➜ invoke pydocstyle
 ➜ invoke pylint
+```
+
+## Vagrant fully automated
+
+Create the creds.env file. 
+
+```bash
+➜ cd development && cp creds.example.env creds.env
+```
+:exclamation: Edit `creds.env` with your own values :exclamation:
+
+Spin up development environment.
+```bash
+➜ cd ../vagrant && vagrant up
+```
+
+Connect to the vagrant box.
+```bash
+➜ vagrant ssh
+```
+:information: After connecting to the vagrant box all the other commands listed before will work. The codebase is mounted at `/code` :information
+
+
+Destroy the vagrant box
+```bash
+➜ vagrant destroy
 ```
 
 [Home](README.md)

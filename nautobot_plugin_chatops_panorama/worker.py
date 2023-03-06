@@ -13,8 +13,9 @@ from nautobot.dcim.models import Interface
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
+from panos.errors import PanDeviceError, PanDeviceXapiError
 from panos.firewall import Firewall
-from panos.errors import PanDeviceError
+from panos.panorama import DeviceGroup
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
@@ -24,6 +25,8 @@ from nautobot_plugin_chatops_panorama.utils.panorama import (
     start_packet_capture,
     get_all_rules,
     split_rules,
+    get_object,
+    get_panorama_device_group_hierarchy,
 )
 
 PALO_LOGO_PATH = "nautobot_palo/palo_transparent.png"
@@ -203,6 +206,22 @@ def validate_rule_exists(
     if not device:
         return prompt_for_device(dispatcher, "panorama validate-rule-exists", pano)
 
+    dev_obj = get_object(pano, device)
+
+    if not dev_obj:
+        dispatcher.send_warning(f"Unable to find {device}.")
+        return CommandStatusChoices.STATUS_FAILED
+
+    if isinstance(dev_obj, DeviceGroup):
+        for child in dev_obj.children:
+            if isinstance(child, Firewall):
+                try:
+                    child.refresh()
+                    dev_obj = child
+                    break
+                except PanDeviceXapiError as err:
+                    logger.warning(f"Unable to connect to {child}. {err}")
+
     if not all([src_ip, dst_ip, protocol, dst_port]):
         dispatcher.multi_input_dialog(
             "panorama", f"validate-rule-exists {device}", "Verify if rule exists", dialog_list
@@ -227,17 +246,13 @@ def validate_rule_exists(
         )
         return CommandStatusChoices.STATUS_ERRORED
 
-    serial = get_devices_from_pano(connection=pano).get(device, {}).get("serial")
-    if not serial:
-        return dispatcher.send_warning(f"The device {device} was not found.")
-
     data = {
         "src_ip": src_ip,
         "dst_ip": dst_ip,
         "protocol": PROTO_NAME_TO_NUM.get(protocol.upper()),
         "dst_port": dst_port,
     }
-    matching_rules = get_rule_match(five_tuple=data, serial=serial)
+    matching_rules = get_rule_match(pano=pano, five_tuple=data, device=dev_obj)
 
     if matching_rules:
         all_rules = []

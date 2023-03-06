@@ -297,3 +297,11 @@ def get_object(pano: Panorama, object_name: str):
         return object_index[object_name]
     return None
 
+
+def get_panorama_device_group_hierarchy(pano: Panorama):
+    """Returns a dict of DeviceGroups and their parent DeviceGroup if found.
+
+    Args:
+        pano (Panorama): Connection to Panorama.
+    """
+    return PanoramaDeviceGroupHierarchy(pano).fetch()

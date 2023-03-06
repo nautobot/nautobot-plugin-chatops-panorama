@@ -143,6 +143,7 @@ def get_devicegroups(dispatcher, **kwargs):
         ephemeral=True,
     )
     devicegroups = get_devicegroups_from_pano(connection=pano)
+    dgh = get_panorama_device_group_hierarchy(pano=pano)
     dispatcher.send_markdown(
         f"{dispatcher.user_mention()}, here is the information about the configured DeviceGroups as requested.",
         ephemeral=True,
@@ -150,6 +151,8 @@ def get_devicegroups(dispatcher, **kwargs):
     message = ""
     for group_name, group_info in devicegroups.items():
         message += f"{group_name}\n"
+        if dgh.get(group_name):
+            message += f"Parent DeviceGroup: {dgh[group_name]}\n"
         if len(group_info["devices"]) > 0:
             for dev in group_info["devices"]:
                 message += f"Hostname: {dev['hostname']}\nAddress: {dev['address']}\nSerial: {dev['serial']}\nModel: {dev['model']}\nVersion: {dev['version']}\n\n"

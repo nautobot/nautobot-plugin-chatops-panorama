@@ -39,8 +39,14 @@ def palo_logo(dispatcher):
 
 def prompt_for_device(dispatcher, command, conn):
     """Prompt the user to select a Palo Alto device."""
-    _devices = get_devices_from_pano(connection=conn)
-    dispatcher.prompt_from_menu(command, "Select a Device", [(dev, dev) for dev in _devices])
+    device_list = []
+    groups = get_devicegroups_from_pano(connection=conn)
+    for group_name, group in groups.items():
+        if group not in device_list:
+            device_list.append(f"{group_name} (DeviceGroup)")
+        for dev in group["devices"]:
+            device_list.append(dev["hostname"])
+    dispatcher.prompt_from_menu(command, "Select a Device or DeviceGroup", [(dev, dev) for dev in device_list])
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 

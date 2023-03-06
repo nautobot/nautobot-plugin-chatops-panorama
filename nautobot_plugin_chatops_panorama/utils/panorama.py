@@ -262,3 +262,38 @@ def split_rules(rules, title=""):
 
         output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{tozone[:-1]},{fromzone[:-1]}\n"
     return output
+
+def get_object(pano: Panorama, object_name: str):
+    """Searches Panorama inventory for provided object name and returns either a DeviceGroup or Firewall object if name matches.
+
+    Args:
+        pano (Panorama): Connection to Panorama.
+        object_name (str): Name of either a Firewall or DeviceGroup to find and return.
+
+    Returns:
+        DeviceGroup|Firewall: Either a Firewall or DeviceGroup object if found.
+    """
+    object_index = {}
+    dev_groups = pano.refresh_devices()
+    for instance in dev_groups:
+        if isinstance(instance, DeviceGroup):
+            group_name = f"{instance.name} (DeviceGroup)"
+            object_index[group_name] = instance
+            if instance.children:
+                for child in instance.children:
+                    if isinstance(child, Firewall):
+                        try:
+                            pano.add(child)
+                            info = child.show_system_info()["system"]
+                            object_index[info["hostname"]] = child
+                        except PanDeviceXapiError as err:
+                            logger.warning(f"Unable to connect to {child}. {err}")
+        if isinstance(instance, Firewall):
+            pano.add(instance)
+            info = instance.show_system_info()["system"]
+            object_index[info["hostname"]] = instance
+
+    if object_name in object_index:
+        return object_index[object_name]
+    return None
+

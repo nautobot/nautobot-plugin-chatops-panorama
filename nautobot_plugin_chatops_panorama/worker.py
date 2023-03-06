@@ -172,7 +172,7 @@ def get_devicegroups(dispatcher, **kwargs):
 @subcommand_of("panorama")
 def validate_rule_exists(
     dispatcher, device, src_ip, dst_ip, protocol, dst_port
-):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches
+):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches,too-many-statements
     """Verify that the rule exists within a device, via Panorama."""
     dialog_list = [
         {
@@ -220,7 +220,7 @@ def validate_rule_exists(
                     dev_obj = child
                     break
                 except PanDeviceXapiError as err:
-                    logger.warning(f"Unable to connect to {child}. {err}")
+                    dispatcher.send_warning(f"Unable to connect to {child}. {err}")
 
     if not all([src_ip, dst_ip, protocol, dst_port]):
         dispatcher.multi_input_dialog(
@@ -361,15 +361,29 @@ def upload_software(dispatcher, device, version, **kwargs):
             dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
         )
 
-    devs = get_devices_from_pano(connection=pano)
     dispatcher.send_markdown(
         f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True
     )
-    _firewall = Firewall(serial=devs[device]["serial"])
+    _firewall = get_object(pano=pano, object_name=device)
+
+    is_devicegroup = False
+    if isinstance(_firewall, DeviceGroup):
+        is_devicegroup = True
+        for child in _firewall.children:
+            try:
+                child.refresh()
+                _firewall = child
+                break
+            except PanDeviceXapiError as err:
+                dispatcher.send_warning(f"There was an issue connecting to {child}. {err}")
+
     pano.add(_firewall)
     dispatcher.send_markdown("Starting download now...", ephemeral=True)
     try:
-        _firewall.software.download(version)
+        if is_devicegroup:
+            _firewall.software.download(version, sync_to_peer=True)
+        else:
+            _firewall.software.download(version)
     except PanDeviceError as err:
         blocks = [
             *dispatcher.command_response_header(

@@ -210,7 +210,7 @@ def parse_all_rule_names(xml_rules: str) -> list:
     return rule_names
 
 
-def get_all_rules(device_name: str, pano: Panorama) -> list:
+def get_all_rules(device_name: str, pano: Panorama) -> list:  # pylint: disable=too-many-locals
     """Get all currently configured rules.
 
     Args:
@@ -238,7 +238,7 @@ def get_all_rules(device_name: str, pano: Panorama) -> list:
                     target = child
                     break
                 except PanDeviceXapiError as err:
-                    logger.warning(f"Error refreshing {child}. {err}")
+                    logger.warning("Error refreshing %s. %s", child, err)
         device_group_pre_rulebase = target.add(PreRulebase())
         device_group_pre_rules = SecurityRule.refreshall(device_group_pre_rulebase)
         device_group_post_rulebase = target.add(PostRulebase())
@@ -296,7 +296,7 @@ def get_object(pano: Panorama, object_name: str):
     """
     object_index = {}
     dev_groups = pano.refresh_devices()
-    for instance in dev_groups:
+    for instance in dev_groups:  # pylint: disable=too-many-nested-blocks
         if isinstance(instance, DeviceGroup):
             group_name = f"{instance.name} (DeviceGroup)"
             object_index[group_name] = instance
@@ -308,7 +308,7 @@ def get_object(pano: Panorama, object_name: str):
                             info = child.show_system_info()["system"]
                             object_index[info["hostname"]] = child
                         except PanDeviceXapiError as err:
-                            logger.warning(f"Unable to connect to {child}. {err}")
+                            logger.warning("Unable to connect to %s. %s", child, err)
         if isinstance(instance, Firewall):
             pano.add(instance)
             info = instance.show_system_info()["system"]

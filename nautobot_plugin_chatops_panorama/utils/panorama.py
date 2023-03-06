@@ -1,15 +1,15 @@
 """Functions used for interacting with Panroama."""
 import logging
 import time
-
+from typing import List
 import defusedxml.ElementTree as ET
 import requests
 
 from netmiko import ConnectHandler
 from panos.errors import PanDeviceXapiError
 from panos.firewall import Firewall
-from panos.panorama import Panorama
-from panos.policies import Rulebase, SecurityRule
+from panos.panorama import Panorama, DeviceGroup, PanoramaDeviceGroupHierarchy
+from panos.policies import PostRulebase, PreRulebase, Rulebase, SecurityRule
 from requests.exceptions import RequestException
 
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
@@ -49,26 +49,26 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def get_rule_match(five_tuple: dict, serial: str) -> dict:
-    """Method to obtain the devices connected to Panorama.
+def get_rule_match(pano: Panorama, five_tuple: dict, device: Firewall) -> List[dict]:
+    """Method to test if rule match is found for Device name.
 
     Args:
+        pano (Panorama): Connection object to Panorama.
         five_tuple (dict): Five tuple dictionary for rule lookup
-        serial (str): Serial of firewall device to query
+        device (Firewall): Firewall device to query
 
     Returns:
-        dict: Dictionary of all devices attached to Panorama.
+        List[dict]: List of dictionaries of all matched rules.
     """
-    host = PLUGIN_CFG["panorama_host"].rstrip("/")
-    firewall = Firewall(serial=serial)
-    pano = Panorama(host, api_key=get_api_key_api())
-    pano.add(firewall)
-    match = firewall.test_security_policy_match(
-        source=five_tuple["src_ip"],
-        destination=five_tuple["dst_ip"],
-        protocol=int(five_tuple["protocol"]),
-        port=int(five_tuple["dst_port"]),
-    )
+    match = []
+    if device:
+        pano.add(device)
+        match = device.test_security_policy_match(
+            source=five_tuple["src_ip"],
+            destination=five_tuple["dst_ip"],
+            protocol=int(five_tuple["protocol"]),
+            port=int(five_tuple["dst_port"]),
+        )
     return match
 
 
@@ -214,28 +214,48 @@ def get_all_rules(device_name: str, pano: Panorama) -> list:
     """Get all currently configured rules.
 
     Args:
-        device_name (str): Name of firewall device in Panorama
+        device_name (str): Name of firewall or DeviceGroup in Panorama
         pano (Panorama): Panorama connection
 
     Returns:
         list: List of rules
     """
-    firewalls = pano.refresh_devices(include_device_groups=False)
-    device = None
-    for firewall in firewalls:
-        try:
-            pano.add(firewall)
-            dev = firewall.show_system_info()["system"]
-            if dev["hostname"] == device_name:
-                device = firewall
-        except PanDeviceXapiError as err:
-            logger.warning("Unable to pull info for %s. %s", device_name, err)
-    dev = pano.add(device)
-    rulebase = dev.add(Rulebase())
+    rules: List[SecurityRule] = []
+    shared_pre_rulebase = pano.add(PreRulebase())
+    shared_pre_rules = SecurityRule.refreshall(shared_pre_rulebase)
+    shared_post_rulebase = pano.add(PostRulebase())
+    shared_post_rules = SecurityRule.refreshall(shared_post_rulebase)
+    if shared_pre_rules:
+        rules.extend(shared_pre_rules)
+    if shared_post_rules:
+        rules.extend(shared_post_rules)
+    target = get_object(pano=pano, object_name=device_name)
     try:
-        rules = SecurityRule.refreshall(rulebase)
+        if isinstance(target, DeviceGroup):
+            for child in target.children:
+                try:
+                    child.refresh()
+                    target = child
+                    break
+                except PanDeviceXapiError as err:
+                    logger.warning(f"Error refreshing {child}. {err}")
+        device_group_pre_rulebase = target.add(PreRulebase())
+        device_group_pre_rules = SecurityRule.refreshall(device_group_pre_rulebase)
+        device_group_post_rulebase = target.add(PostRulebase())
+        device_group_post_rules = SecurityRule.refreshall(device_group_post_rulebase)
+        if device_group_pre_rules:
+            rules.extend(device_group_pre_rules)
+        if device_group_post_rules:
+            rules.extend(device_group_post_rules)
     except PanDeviceXapiError as err:
-        logger.warning("Unable to find information about %s as it's not connected to Panorama. %s", device, err)
+        logger.warning("Unable to pull info for %s. %s", device_name, err)
+    rulebase = target.add(Rulebase())
+    try:
+        local_rules = SecurityRule.refreshall(rulebase)
+        if local_rules:
+            rules.extend(local_rules)
+    except PanDeviceXapiError as err:
+        logger.warning("Unable to find information about %s as it's not connected to Panorama. %s", target, err)
         rules = []
     return rules
 
@@ -262,6 +282,7 @@ def split_rules(rules, title=""):
 
         output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{tozone[:-1]},{fromzone[:-1]}\n"
     return output
+
 
 def get_object(pano: Panorama, object_name: str):
     """Searches Panorama inventory for provided object name and returns either a DeviceGroup or Firewall object if name matches.

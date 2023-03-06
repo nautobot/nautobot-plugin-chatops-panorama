@@ -46,7 +46,7 @@ def prompt_for_device(dispatcher, command, conn):
     groups = get_devicegroups_from_pano(connection=conn)
     for group_name, group in groups.items():
         if group not in device_list:
-            device_list.append(f"{group_name} (DeviceGroup)")
+            device_list.append(f"{group_name}__DeviceGroup")
         for dev in group["devices"]:
             device_list.append(dev["hostname"])
     dispatcher.prompt_from_menu(command, "Select a Device or DeviceGroup", [(dev, dev) for dev in device_list])

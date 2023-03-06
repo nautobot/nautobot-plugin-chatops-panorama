@@ -298,7 +298,7 @@ def get_object(pano: Panorama, object_name: str):
     dev_groups = pano.refresh_devices()
     for instance in dev_groups:  # pylint: disable=too-many-nested-blocks
         if isinstance(instance, DeviceGroup):
-            group_name = f"{instance.name} (DeviceGroup)"
+            group_name = f"{instance.name}__DeviceGroup"
             object_index[group_name] = instance
             if instance.children:
                 for child in instance.children:

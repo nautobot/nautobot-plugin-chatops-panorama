@@ -1,8 +1,8 @@
 # Nautobot Panorama ChatOps
 
-This is a plugin for [Nautobot](https://github.com/nautobot/nautobot) that extends ChatOps support to Palo Alto Panorama systems. The plugin adds some useful commands into your ChatOps environment that enhance an administrator's and end user's day to day using of Panorama. This framework allows for the quick extension of new ChatOps commands for Panorama.
+This is a plugin for [Nautobot](https://github.com/nautobot/nautobot) that extends ChatOps support to Palo Alto Panorama systems. The plugin adds some useful commands into your ChatOps environment that enhances an administrator's and end user's day-to-day usage of Panorama. This framework allows for the quick extension of new ChatOps commands for Panorama.
 
-Note: While this plugin requires Nautobot and the base Nautobot ChatOps plugin, it does _not_ require the Panorama or Palo Alto inventory to be in Nautobot. It is effectively Nautobot-independent, except for using it as a backend to run the chat bot itself.
+Note: While this plugin requires Nautobot and the base Nautobot ChatOps plugin, it does _not_ require the Panorama or Palo Alto inventory to be in Nautobot. It is effectively Nautobot-independent, except for using it as a backend to run the chatbot itself.
 
 ## Usage
 
@@ -10,13 +10,15 @@ The supported commands are listed below. We welcome any new command or feature r
 
 | /panorama Command    | Description                                                                |
 | -------------------- | -------------------------------------------------------------------------- |
-| capture-traffic      | Run a packet capture on PANOS Device for specified IP traffic.             |
-| export-device-rules  | Generate a downloadable list of firewall rules with details in CSV format. |
-| get-device-rules     | Return a list of all firewall rules on a given device with details.        |
-| get-version          | Obtain software version information for Panorama.                          |
-| install-software     | Install software to specified Palo Alto device.                            |
-| upload-software      | Upload software to specified Palo Alto device.                             |
+| get-devices          | Get information about connected devices from Panorama.                     |
+| get-devicegroups     | Get information about DeviceGroups and their devices from Panorama.        |
 | validate-rule-exists | Verify that a specific ACL rule exists within a device, via Panorama.      |
+| get-version          | Obtain software version information for Panorama.                          |
+| upload-software      | Upload software to specified Palo Alto device.                             |
+| install-software     | Install software to specified Palo Alto device.                            |
+| get-device-rules     | Return a list of all firewall rules on a given device with details.        |
+| export-device-rules  | Generate a downloadable list of firewall rules with details in CSV format. |
+| capture-traffic      | Run a packet capture on PANOS Device for specified IP traffic.             |
 
 ## Prerequisites
 

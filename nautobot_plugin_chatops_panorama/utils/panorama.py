@@ -72,8 +72,8 @@ def get_rule_match(pano: Panorama, five_tuple: dict, device: Firewall) -> List[d
     return match
 
 
-def get_devices_from_pano(connection: Panorama) -> dict:
-    """Method to obtain the devices connected to Panorama.
+def get_from_pano(connection: Panorama, devices: bool = False, groups: bool = False) -> dict:
+    """Method to obtain the devices or DeviceGroups connected to Panorama.
 
     Args:
         connection (Panorama): Connection object to Panorama.
@@ -81,9 +81,27 @@ def get_devices_from_pano(connection: Panorama) -> dict:
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
+    response = {}
+    dev_groups = connection.refresh_devices()
+    if devices:
+        response = build_device_info(connection=connection, groups=dev_groups)
+    if groups:
+        response = build_group_info(connection=connection, groups=dev_groups)
+    return response
+
+
+def build_device_info(connection: Panorama, groups: List[DeviceGroup]) -> dict:
+    """Method to create the devices connected to Panorama.
+
+    Args:
+        connection (Panorama): Connection object to Panorama.
+        groups (List[DeviceGroup]): List of DeviceGroups that are configured in Panorama.
+
+    Returns:
+        dict: Dictionary of all devices attached to Panorama.
+    """
     _device_dict = {}
-    devicegroups = connection.refresh_devices()
-    for group in devicegroups:
+    for group in groups:
         for device in group.children:
             try:
                 connection.add(device)
@@ -103,11 +121,18 @@ def get_devices_from_pano(connection: Panorama) -> dict:
     return _device_dict
 
 
-def get_devicegroups_from_pano(connection: Panorama) -> dict:
-    """Method to obtain DeviceGroups and associated information for devices."""
+def build_group_info(connection: Panorama, groups: List[DeviceGroup]) -> dict:
+    """Method to obtain DeviceGroups and associated information for devices.
+
+    Args:
+        connection (Panorama): Connection object to Panorama.
+        groups (List[DeviceGroup]): List of DeviceGroups that are are configured in Panorama.
+
+    Returns:
+        dict: Dictionary of all DeviceGroups and associated Firewalls that are attached to Panorama.
+    """
     _group_dict = {}
-    devicegroups = connection.refresh_devices()
-    for group in devicegroups:
+    for group in groups:
         if group.name not in _group_dict:
             _group_dict[group.name] = {"devices": []}
         for device in group.children:

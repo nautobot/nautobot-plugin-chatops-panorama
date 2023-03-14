@@ -19,8 +19,7 @@ from panos.panorama import DeviceGroup
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
-    get_devices_from_pano,
-    get_devicegroups_from_pano,
+    get_from_pano,
     get_rule_match,
     start_packet_capture,
     get_all_rules,
@@ -43,7 +42,7 @@ def palo_logo(dispatcher):
 def prompt_for_device(dispatcher, command, conn):
     """Prompt the user to select a Palo Alto device."""
     device_list = []
-    groups = get_devicegroups_from_pano(connection=conn)
+    groups = get_from_pano(connection=conn, groups=True)
     for group_name, group in groups.items():
         if group not in device_list:
             device_list.append(f"{group_name}__DeviceGroup")
@@ -125,7 +124,7 @@ def get_devices(dispatcher, **kwargs):
         f"Hey {dispatcher.user_mention()}, I'm gathering information about the devices connected to this Panorama as requested.",
         ephemeral=True,
     )
-    devices = get_devices_from_pano(connection=pano)
+    devices = get_from_pano(connection=pano, devices=True)
     dispatcher.send_markdown(
         f"{dispatcher.user_mention()}, here are the connected devices as requested.", ephemeral=True
     )
@@ -145,7 +144,7 @@ def get_devicegroups(dispatcher, **kwargs):
         f"Hey {dispatcher.user_mention()}, I'm gathering information about the DeviceGroups connected to this Panorama.",
         ephemeral=True,
     )
-    devicegroups = get_devicegroups_from_pano(connection=pano)
+    devicegroups = get_from_pano(connection=pano, groups=True)
     dgh = get_panorama_device_group_hierarchy(pano=pano)
     dispatcher.send_markdown(
         f"{dispatcher.user_mention()}, here is the information about the configured DeviceGroups as requested.",
@@ -429,7 +428,7 @@ def install_software(dispatcher, device, version, **kwargs):
             dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
         )
 
-    devs = get_devices_from_pano(connection=pano)
+    devs = get_from_pano(connection=pano, devices=True)
     dispatcher.send_markdown(
         f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True
     )
@@ -733,7 +732,7 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    devices = get_devices_from_pano(connection=pano)
+    devices = get_from_pano(connection=pano, devices=True)
     try:
         # TODO: This gathers the internal IP address that Panorama sees. However if the firewall is accessible to Nautobot via a different IP address (e.g. external), this fails.
         #       Add support for multiple possible IP addresses here

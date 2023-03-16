@@ -142,3 +142,9 @@ Sign up [here](http://slack.networktocode.com/)
 ![Capture Traffic Filter](docs/img/screenshot5.png)
 
 ![Capture Traffic](docs/img/screenshot6.png)
+
+![Get Devices](docs/img/screenshot7.png)
+
+![Get DeviceGroups](docs/img/screenshot8.png)
+
+![Get Device Rules](docs/img/screenshot9.png)

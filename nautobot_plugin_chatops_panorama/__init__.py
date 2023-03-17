@@ -20,7 +20,7 @@ class NautobotPluginChatopsPanoramaConfig(PluginConfig):
     author = "Network to Code, LLC"
     description = "Nautobot Chatops plugin for Panorama.."
     required_settings = []
-    min_version = "1.2.0"
+    min_version = "1.4.0"
     max_version = "1.9999"
     default_settings = {}
     caching_config = {}

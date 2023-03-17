@@ -8,6 +8,6 @@ nautobot_plugin_chatops_panorama:
   compose_files:
     - "docker-compose.base.yml"
     - "docker-compose.redis.yml"
-    - "docker-compose.postgres.yml"
+    - "docker-compose.mysql.yml"
     - "docker-compose.dev.yml"
     - "docker-compose.mattermost-dev.yml"

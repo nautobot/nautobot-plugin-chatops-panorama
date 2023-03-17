@@ -40,7 +40,12 @@ def is_truthy(arg):
 
 # Use pyinvoke configuration for default values, see http://docs.pyinvoke.org/en/stable/concepts/configuration.html
 # Variables may be overwritten in invoke.yml or by the environment variables INVOKE_NAUTOBOT_PLUGIN_CHATOPS_PANORAMA_xxx
-compose_files = ["docker-compose.requirements.yml", "docker-compose.base.yml", "docker-compose.dev.yml"]
+compose_files = [
+    "docker-compose.redis.yml",
+    "docker-compose.base.yml",
+    "docker-compose.dev.yml",
+    "docker-compose.postgres.yml",
+]
 compose_files.append("docker-compose.mattermost-dev.yml")
 
 namespace = Collection("nautobot_plugin_chatops_panorama")
@@ -49,10 +54,11 @@ namespace.configure(
         "nautobot_plugin_chatops_panorama": {
             "nautobot_ver": "latest",
             "project_name": "nautobot_plugin_chatops_panorama",
-            "python_ver": "3.7",
+            "python_ver": "3.8",
             "local": False,
             "compose_dir": os.path.join(os.path.dirname(__file__), "development"),
             "compose_files": compose_files,
+            "compose_http_timeout": "86400",
         }
     }
 )
@@ -86,15 +92,32 @@ def docker_compose(context, command, **kwargs):
         **kwargs: Passed through to the context.run() call.
     """
     build_env = {
+        # Note: 'docker-compose logs' will stop following after 60 seconds by default,
+        # so we are overriding that by setting this environment variable.
+        "COMPOSE_HTTP_TIMEOUT": context.nautobot_plugin_chatops_panorama.compose_http_timeout,
         "NAUTOBOT_VER": context.nautobot_plugin_chatops_panorama.nautobot_ver,
         "PYTHON_VER": context.nautobot_plugin_chatops_panorama.python_ver,
     }
-    compose_command = f'docker-compose --project-name {context.nautobot_plugin_chatops_panorama.project_name} --project-directory "{context.nautobot_plugin_chatops_panorama.compose_dir}"'
+    compose_command_tokens = [
+        "docker-compose",
+        f"--project-name {context.nautobot_plugin_chatops_panorama.project_name}",
+        f'--project-directory "{context.nautobot_plugin_chatops_panorama.compose_dir}"',
+    ]
+
     for compose_file in context.nautobot_plugin_chatops_panorama.compose_files:
         compose_file_path = os.path.join(context.nautobot_plugin_chatops_panorama.compose_dir, compose_file)
-        compose_command += f' -f "{compose_file_path}"'
-    compose_command += f" {command}"
+        compose_command_tokens.append(f' -f "{compose_file_path}"')
+
+    compose_command_tokens.append(command)
+
+    # If `service` was passed as a kwarg, add it to the end.
+    service = kwargs.pop("service", None)
+    if service is not None:
+        compose_command_tokens.append(service)
+
     print(f'Running docker-compose command "{command}"')
+    compose_command = " ".join(compose_command_tokens)
+
     return context.run(compose_command, env=build_env, **kwargs)
 
 
@@ -103,7 +126,7 @@ def run_command(context, command, **kwargs):
     if is_truthy(context.nautobot_plugin_chatops_panorama.local):
         context.run(command, **kwargs)
     else:
-        # Check if netbox is running, no need to start another netbox container to run a command
+        # Check if nautobot is running, no need to start another nautobot container to run a command
         docker_compose_status = "ps --services --filter status=running"
         results = docker_compose(context, docker_compose_status, hide="out")
         if "nautobot" in results.stdout:
@@ -144,6 +167,7 @@ def load_env_dotf(dotf_path):
 def build(context, force_rm=False, cache=True):
     """Build Nautobot docker image."""
     command = "build"
+
     if not cache:
         command += " --no-cache"
     if force_rm:
@@ -170,11 +194,11 @@ def debug(context):
     docker_compose(context, "up")
 
 
-@task
-def start(context):
+@task(help={"service": "If specified, only affect this service."})
+def start(context, service=None):
     """Start Nautobot and its dependencies in detached mode."""
     print("Starting Nautobot in detached mode...")
-    docker_compose(context, "up --detach")
+    docker_compose(context, "up --detach", service=service)
 
 
 @task
@@ -206,6 +230,26 @@ def vscode(context):
     context.run(command)
 
 
+@task(
+    help={
+        "service": "Docker-compose service name to view (default: nautobot)",
+        "follow": "Follow logs",
+        "tail": "Tail N number of lines or 'all'",
+    }
+)
+def logs(context, service="nautobot", follow=False, tail=None):
+    """View the logs of a docker-compose service."""
+    command = "logs "
+
+    if follow:
+        command += "--follow "
+    if tail:
+        command += f"--tail={tail} "
+
+    command += service
+    docker_compose(context, command)
+
+
 # ------------------------------------------------------------------------------
 # ACTIONS
 # ------------------------------------------------------------------------------
@@ -213,6 +257,13 @@ def vscode(context):
 def nbshell(context):
     """Launch an interactive nbshell session."""
     command = "nautobot-server nbshell"
+    run_command(context, command)
+
+
+@task
+def shell_plus(context):
+    """Launch an interactive shell_plus session."""
+    command = "nautobot-server shell_plus"
     run_command(context, command)
 
 
@@ -357,6 +408,21 @@ def setup_mattermost(context):
 
 
 # ------------------------------------------------------------------------------
+# DOCS
+# ------------------------------------------------------------------------------
+@task
+def docs(context):
+    """Build and serve docs locally for development."""
+    command = "mkdocs serve -v"
+
+    if is_truthy(context.nautobot_plugin_chatops_panorama.local):
+        print(">>> Serving Documentation at http://localhost:8001")
+        run_command(context, command)
+    else:
+        start(context, servics="docs")
+
+
+# ------------------------------------------------------------------------------
 # TESTS
 # ------------------------------------------------------------------------------
 @task(
@@ -379,7 +445,7 @@ def black(context, autoformat=False):
 @task
 def flake8(context):
     """Check for PEP8 compliance and other style issues."""
-    command = "flake8 ."
+    command = "flake8 . --config .flake8"
     run_command(context, command)
 
 
@@ -398,17 +464,6 @@ def pylint(context):
 
 
 @task
-def yamllint(context):
-    """Run yamllint to validate formating adheres to NTC defined YAML standards.
-
-    Args:
-        context (obj): Used to run specific commands
-    """
-    command = "yamllint . --format standard"
-    run_command(context, command)
-
-
-@task
 def pydocstyle(context):
     """Run pydocstyle to validate docstring formatting adheres to NTC defined standards."""
     # We exclude the /migrations/ directory since it is autogenerated code
@@ -420,6 +475,17 @@ def pydocstyle(context):
 def bandit(context):
     """Run bandit to validate basic static code security analysis."""
     command = "bandit --recursive . --configfile .bandit.yml"
+    run_command(context, command)
+
+
+@task
+def yamllint(context):
+    """Run yamllint to validate formating adheres to NTC defined YAML standards.
+
+    Args:
+        context (obj): Used to run specific commands
+    """
+    command = "yamllint . --format standard"
     run_command(context, command)
 
 
@@ -476,12 +542,12 @@ def tests(context, failfast=False):
     black(context)
     print("Running flake8...")
     flake8(context)
-    print("Running yamllint...")
-    yamllint(context)
     print("Running bandit...")
     bandit(context)
     print("Running pydocstyle...")
     pydocstyle(context)
+    print("Running yamllint...")
+    yamllint(context)
     print("Running pylint...")
     pylint(context)
     print("Running unit tests...")

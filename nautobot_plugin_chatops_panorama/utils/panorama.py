@@ -1,17 +1,21 @@
 """Functions used for interacting with Panroama."""
-
+import logging
 import time
-
+from typing import List
 import defusedxml.ElementTree as ET
 import requests
 
 from netmiko import ConnectHandler
+from panos.errors import PanDeviceXapiError
 from panos.firewall import Firewall
-from panos.panorama import Panorama
-from panos.policies import Rulebase, SecurityRule
+from panos.panorama import Panorama, DeviceGroup, PanoramaDeviceGroupHierarchy
+from panos.policies import PostRulebase, PreRulebase, Rulebase, SecurityRule
 from requests.exceptions import RequestException
 
 from nautobot_plugin_chatops_panorama.constant import PLUGIN_CFG
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_api_key_api(url: str = PLUGIN_CFG["panorama_host"]) -> str:
@@ -45,47 +49,31 @@ def connect_panorama() -> Panorama:
     return pano
 
 
-def _get_group(groups: dict, serial: str) -> str:
-    """Sort through fetched groups and serials and return group.
+def get_rule_match(pano: Panorama, five_tuple: dict, device: Firewall) -> List[dict]:
+    """Method to test if rule match is found for Device name.
 
     Args:
-        groups (dict): Group names as keys and serial numbers in a list
-        serial (str): Serial to search for within group serial number lists
-
-    Returns:
-        group_name (str): Name of group serial is part of or None if serial not in a group
-    """
-    for group_name, serial_numbers in groups.items():
-        if serial in serial_numbers:
-            return group_name
-    return None
-
-
-def get_rule_match(five_tuple: dict, serial: str) -> dict:
-    """Method to obtain the devices connected to Panorama.
-
-    Args:
+        pano (Panorama): Connection object to Panorama.
         five_tuple (dict): Five tuple dictionary for rule lookup
-        serial (str): Serial of firewall device to query
+        device (Firewall): Firewall device to query
 
     Returns:
-        dict: Dictionary of all devices attached to Panorama.
+        List[dict]: List of dictionaries of all matched rules.
     """
-    host = PLUGIN_CFG["panorama_host"].rstrip("/")
-    firewall = Firewall(serial=serial)
-    pano = Panorama(host, api_key=get_api_key_api())
-    pano.add(firewall)
-    match = firewall.test_security_policy_match(
-        source=five_tuple["src_ip"],
-        destination=five_tuple["dst_ip"],
-        protocol=int(five_tuple["protocol"]),
-        port=int(five_tuple["dst_port"]),
-    )
+    match = []
+    if device:
+        pano.add(device)
+        match = device.test_security_policy_match(
+            source=five_tuple["src_ip"],
+            destination=five_tuple["dst_ip"],
+            protocol=int(five_tuple["protocol"]),
+            port=int(five_tuple["dst_port"]),
+        )
     return match
 
 
-def get_devices(connection: Panorama) -> dict:
-    """Method to obtain the devices connected to Panorama.
+def get_from_pano(connection: Panorama, devices: bool = False, groups: bool = False) -> dict:
+    """Method to obtain the devices or DeviceGroups connected to Panorama.
 
     Args:
         connection (Panorama): Connection object to Panorama.
@@ -93,44 +81,78 @@ def get_devices(connection: Panorama) -> dict:
     Returns:
         dict: Dictionary of all devices attached to Panorama.
     """
-    dev_list = connection.refresh_devices(include_device_groups=False)
+    response = {}
+    dev_groups = connection.refresh_devices()
+    if devices:
+        response = build_device_info(connection=connection, groups=dev_groups)
+    if groups:
+        response = build_group_info(connection=connection, groups=dev_groups)
+    return response
 
-    group_names = []
-    devices = connection.refresh_devices()
-    for device in devices:
-        try:
-            # AttributeError thrown if device is not in a device group
-            group_names.append(device.name)
-        except AttributeError:
-            continue
 
-    group_xml_obj = connection.op("show devicegroups")
-    groups_and_devices = {}
-    for group in group_names:
-        if group not in groups_and_devices:
-            groups_and_devices[group] = []
-        groups_and_devices[group].extend(
-            [x.text for x in group_xml_obj.find(f".//entry[@name='{group}']").findall(".//serial")]
-        )
+def build_device_info(connection: Panorama, groups: List[DeviceGroup]) -> dict:
+    """Method to create the devices connected to Panorama.
 
+    Args:
+        connection (Panorama): Connection object to Panorama.
+        groups (List[DeviceGroup]): List of DeviceGroups that are configured in Panorama.
+
+    Returns:
+        dict: Dictionary of all devices attached to Panorama.
+    """
     _device_dict = {}
-    for device in dev_list:
-        group_name = _get_group(groups_and_devices, device.serial)
-        connection.add(device)
-        device_system_info = device.show_system_info()["system"]
-        #        system_setting = device.find("", SystemSettings)
-        # TODO: Add support for virtual firewall (vsys PA's) on same physical device
-        _device_dict[device_system_info["hostname"]] = {
-            "hostname": device_system_info["hostname"],
-            "serial": device_system_info["serial"],
-            "group_name": group_name,
-            "ip_address": device_system_info["ip-address"],
-            "status": device.is_active(),
-            # TODO: Grab this via proxy to firewall to grab get_system_info()
-            "model": device_system_info["model"],
-            "os_version": device_system_info["sw-version"],
-        }
+    for group in groups:
+        for device in group.children:
+            try:
+                connection.add(device)
+                device_system_info = device.show_system_info()["system"]
+                # TODO: Add support for virtual firewall (vsys PA's) on same physical device
+                _device_dict[device_system_info["hostname"]] = {
+                    "hostname": device_system_info["hostname"],
+                    "serial": device_system_info["serial"],
+                    "group_name": group.name,
+                    "ip_address": device_system_info["ip-address"],
+                    "status": device.is_active(),
+                    "model": device_system_info["model"],
+                    "os_version": device_system_info["sw-version"],
+                }
+            except PanDeviceXapiError as err:
+                logger.warning("Unable to pull info for %s. %s", device, err)
     return _device_dict
+
+
+def build_group_info(connection: Panorama, groups: List[DeviceGroup]) -> dict:
+    """Method to obtain DeviceGroups and associated information for devices.
+
+    Args:
+        connection (Panorama): Connection object to Panorama.
+        groups (List[DeviceGroup]): List of DeviceGroups that are are configured in Panorama.
+
+    Returns:
+        dict: Dictionary of all DeviceGroups and associated Firewalls that are attached to Panorama.
+    """
+    _group_dict = {}
+    for group in groups:
+        if group.name not in _group_dict:
+            _group_dict[group.name] = {"devices": []}
+        for device in group.children:
+            dev = None
+            try:
+                connection.add(device)
+                dev = device.show_system_info()["system"]
+            except PanDeviceXapiError as err:
+                logger.warning("Unable to pull info for %s. %s", device, err)
+            if dev:
+                _group_dict[group.name]["devices"].append(
+                    {
+                        "hostname": dev["hostname"],
+                        "address": dev["ip-address"],
+                        "serial": dev["serial"],
+                        "model": dev["model"],
+                        "version": dev["sw-version"],
+                    }
+                )
+    return _group_dict
 
 
 def start_packet_capture(capture_filename: str, ip_address: str, filters: dict):
@@ -213,24 +235,53 @@ def parse_all_rule_names(xml_rules: str) -> list:
     return rule_names
 
 
-def get_all_rules(device: str, pano: Panorama) -> list:
+def get_all_rules(device_name: str, pano: Panorama) -> list:  # pylint: disable=too-many-locals
     """Get all currently configured rules.
 
     Args:
-        device (str): Name of firewall device in Panorama
+        device_name (str): Name of firewall or DeviceGroup in Panorama
         pano (Panorama): Panorama connection
 
     Returns:
         list: List of rules
     """
-    devices = pano.refresh_devices(include_device_groups=False)
-    device = pano.add(devices[0])
-    # TODO: Future - filter by name input, the query/filter in Nautobot DB and/or Panorama
-    # if not device:
-    #     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
-    #     device = pano.add(devices[0])
-    rulebase = device.add(Rulebase())
-    rules = SecurityRule.refreshall(rulebase)
+    rules: List[SecurityRule] = []
+    shared_pre_rulebase = pano.add(PreRulebase())
+    shared_pre_rules = SecurityRule.refreshall(shared_pre_rulebase)
+    shared_post_rulebase = pano.add(PostRulebase())
+    shared_post_rules = SecurityRule.refreshall(shared_post_rulebase)
+    if shared_pre_rules:
+        rules.extend(shared_pre_rules)
+    if shared_post_rules:
+        rules.extend(shared_post_rules)
+    target = get_object(pano=pano, object_name=device_name)
+    try:
+        if isinstance(target, DeviceGroup):
+            for child in target.children:
+                try:
+                    child.refresh()
+                    target = child
+                    break
+                except PanDeviceXapiError as err:
+                    logger.warning("Error refreshing %s. %s", child, err)
+        device_group_pre_rulebase = target.add(PreRulebase())
+        device_group_pre_rules = SecurityRule.refreshall(device_group_pre_rulebase)
+        device_group_post_rulebase = target.add(PostRulebase())
+        device_group_post_rules = SecurityRule.refreshall(device_group_post_rulebase)
+        if device_group_pre_rules:
+            rules.extend(device_group_pre_rules)
+        if device_group_post_rules:
+            rules.extend(device_group_post_rules)
+    except PanDeviceXapiError as err:
+        logger.warning("Unable to pull info for %s. %s", device_name, err)
+    rulebase = target.add(Rulebase())
+    try:
+        local_rules = SecurityRule.refreshall(rulebase)
+        if local_rules:
+            rules.extend(local_rules)
+    except PanDeviceXapiError as err:
+        logger.warning("Unable to find information about %s as it's not connected to Panorama. %s", target, err)
+        rules = []
     return rules
 
 
@@ -256,3 +307,47 @@ def split_rules(rules, title=""):
 
         output += f"{rule.name},{sources[:-1]},{destinations[:-1]},{services[:-1]},{rule.action},{tozone[:-1]},{fromzone[:-1]}\n"
     return output
+
+
+def get_object(pano: Panorama, object_name: str):
+    """Searches Panorama inventory for provided object name and returns either a DeviceGroup or Firewall object if name matches.
+
+    Args:
+        pano (Panorama): Connection to Panorama.
+        object_name (str): Name of either a Firewall or DeviceGroup to find and return.
+
+    Returns:
+        DeviceGroup|Firewall: Either a Firewall or DeviceGroup object if found.
+    """
+    object_index = {}
+    dev_groups = pano.refresh_devices()
+    for instance in dev_groups:  # pylint: disable=too-many-nested-blocks
+        if isinstance(instance, DeviceGroup):
+            group_name = f"{instance.name}__DeviceGroup"
+            object_index[group_name] = instance
+            if instance.children:
+                for child in instance.children:
+                    if isinstance(child, Firewall):
+                        try:
+                            pano.add(child)
+                            info = child.show_system_info()["system"]
+                            object_index[info["hostname"]] = child
+                        except PanDeviceXapiError as err:
+                            logger.warning("Unable to connect to %s. %s", child, err)
+        if isinstance(instance, Firewall):
+            pano.add(instance)
+            info = instance.show_system_info()["system"]
+            object_index[info["hostname"]] = instance
+
+    if object_name in object_index:
+        return object_index[object_name]
+    return None
+
+
+def get_panorama_device_group_hierarchy(pano: Panorama):
+    """Returns a dict of DeviceGroups and their parent DeviceGroup if found.
+
+    Args:
+        pano (Panorama): Connection to Panorama.
+    """
+    return PanoramaDeviceGroupHierarchy(pano).fetch()

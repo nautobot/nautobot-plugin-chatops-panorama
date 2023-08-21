@@ -32,22 +32,30 @@ TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 # Example: ALLOWED_HOSTS = ['nautobot.example.com', 'nautobot.internal.local']
 ALLOWED_HOSTS = os.getenv("NAUTOBOT_ALLOWED_HOSTS", "").split(" ")
 
+nautobot_db_engine = os.getenv("NAUTOBOT_DB_ENGINE", "django.db.backends.postgresql")
+default_db_settings = {
+    "django.db.backends.postgresql": {
+        "NAUTOBOT_DB_PORT": "5432",
+    },
+    "django.db.backends.mysql": {
+        "NAUTOBOT_DB_PORT": "3306",
+    },
+}
 DATABASES = {
     "default": {
         "NAME": os.getenv("NAUTOBOT_DB_NAME", "nautobot"),  # Database name
         "USER": os.getenv("NAUTOBOT_DB_USER", ""),  # Database username
         "PASSWORD": os.getenv("NAUTOBOT_DB_PASSWORD", ""),  # Database password
         "HOST": os.getenv("NAUTOBOT_DB_HOST", "localhost"),  # Database server
-        "PORT": os.getenv("NAUTOBOT_DB_PORT", ""),  # Database port (leave blank for default)
+        "PORT": os.getenv(
+            "NAUTOBOT_DB_PORT", default_db_settings[nautobot_db_engine]["NAUTOBOT_DB_PORT"]
+        ),  # Database port, default to postgres
         "CONN_MAX_AGE": int(os.getenv("NAUTOBOT_DB_TIMEOUT", 300)),  # Database timeout
-        "ENGINE": os.getenv(
-            "NAUTOBOT_DB_ENGINE", "django.db.backends.postgresql"
-        ),  # Database driver ("mysql" or "postgresql")
+        "ENGINE": nautobot_db_engine,
     }
 }
 
 # Ensure proper Unicode handling for MySQL
-#
 if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
     DATABASES["default"]["OPTIONS"] = {"charset": "utf8mb4"}
 

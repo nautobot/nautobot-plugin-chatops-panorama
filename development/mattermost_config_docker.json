@@ -38,7 +38,7 @@
         "EnableOpenTracing": false,
         "EnableSecurityFixAlert": true,
         "EnableInsecureOutgoingConnections": true,
-        "AllowedUntrustedInternalConnections": "nautobot 172.21.0.0/24",
+        "AllowedUntrustedInternalConnections": "nautobot 192.168.224.0/24",
         "EnableMultifactorAuthentication": false,
         "EnforceMultifactorAuthentication": false,
         "EnableUserAccessTokens": true,
@@ -543,7 +543,7 @@
         "ClientDirectory": "./client/plugins",
         "Plugins": {
             "com.mattermost.plugin-incident-management": {
-                "BotUserID": "5csko3jrofb7dk1y5g7e9npfyo"
+                "BotUserID": "y5zjid4cibft7ej1hk3zk9zany"
             }
         },
         "PluginStates": {

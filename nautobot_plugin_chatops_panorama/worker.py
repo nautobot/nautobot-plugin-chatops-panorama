@@ -13,22 +13,25 @@ from nautobot.dcim.models import Interface
 from nautobot_chatops.choices import CommandStatusChoices
 from nautobot_chatops.workers import handle_subcommands, subcommand_of
 
+from panos.errors import PanDeviceError, PanDeviceXapiError
 from panos.firewall import Firewall
-from panos.errors import PanDeviceError
+from panos.panorama import DeviceGroup
 
 from nautobot_plugin_chatops_panorama.utils.panorama import (
     connect_panorama,
-    get_devices,
+    get_from_pano,
     get_rule_match,
     start_packet_capture,
     get_all_rules,
     split_rules,
+    get_object,
+    get_panorama_device_group_hierarchy,
 )
 
 PALO_LOGO_PATH = "nautobot_palo/palo_transparent.png"
 PALO_LOGO_ALT = "Palo Alto Networks Logo"
 
-logger = logging.getLogger("rq.worker")
+logger = logging.getLogger(__name__)
 
 
 def palo_logo(dispatcher):
@@ -38,8 +41,14 @@ def palo_logo(dispatcher):
 
 def prompt_for_device(dispatcher, command, conn):
     """Prompt the user to select a Palo Alto device."""
-    _devices = get_devices(connection=conn)
-    dispatcher.prompt_from_menu(command, "Select a Device", [(dev, dev) for dev in _devices])
+    device_list = []
+    groups = get_from_pano(connection=conn, groups=True)
+    for group_name, group in groups.items():
+        if group not in device_list:
+            device_list.append(f"{group_name}__DeviceGroup")
+        for dev in group["devices"]:
+            device_list.append(dev["hostname"])
+    dispatcher.prompt_from_menu(command, "Select a Device or DeviceGroup", [(dev, dev) for dev in device_list])
     return CommandStatusChoices.STATUS_SUCCEEDED
 
 
@@ -108,9 +117,61 @@ def panorama(subcommand, **kwargs):
 
 
 @subcommand_of("panorama")
+def get_devices(dispatcher, **kwargs):
+    """Get information about connected devices from Panorama."""
+    pano = connect_panorama()
+    dispatcher.send_markdown(
+        f"Hey {dispatcher.user_mention()}, I'm gathering information about the devices connected to this Panorama as requested.",
+        ephemeral=True,
+    )
+    devices = get_from_pano(connection=pano, devices=True)
+    dispatcher.send_markdown(
+        f"{dispatcher.user_mention()}, here are the connected devices as requested.", ephemeral=True
+    )
+    dispatcher.send_large_table(
+        ["Hostname", "Serial", "DeviceGroup", "IP Address", "Active", "Model", "OS Version"],
+        [list(device.values()) for _, device in devices.items()],
+        title="Device Inventory",
+    )
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
+def get_devicegroups(dispatcher, **kwargs):
+    """Get information about DeviceGroups and their associated devices from Panorama."""
+    pano = connect_panorama()
+    dispatcher.send_markdown(
+        f"Hey {dispatcher.user_mention()}, I'm gathering information about the DeviceGroups connected to this Panorama.",
+        ephemeral=True,
+    )
+    devicegroups = get_from_pano(connection=pano, groups=True)
+    dgh = get_panorama_device_group_hierarchy(pano=pano)
+    dispatcher.send_markdown(
+        f"{dispatcher.user_mention()}, here is the information about the configured DeviceGroups as requested.",
+        ephemeral=True,
+    )
+    message = ""
+    for group_name, group_info in devicegroups.items():
+        message += f"{group_name}\n"
+        if dgh.get(group_name):
+            message += f"Parent DeviceGroup: {dgh[group_name]}\n"
+        if len(group_info["devices"]) > 0:
+            for dev in group_info["devices"]:
+                message += f"Hostname: {dev['hostname']}\nAddress: {dev['address']}\nSerial: {dev['serial']}\nModel: {dev['model']}\nVersion: {dev['version']}\n\n"
+        else:
+            message += f"No connected devices found for {group_name}.\n"
+    dispatcher.send_snippet(
+        message,
+        title="DeviceGroups",
+        ephemeral=True,
+    )
+    return CommandStatusChoices.STATUS_SUCCEEDED
+
+
+@subcommand_of("panorama")
 def validate_rule_exists(
     dispatcher, device, src_ip, dst_ip, protocol, dst_port
-):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches
+):  # pylint:disable=too-many-arguments,too-many-locals,too-many-branches,too-many-statements
     """Verify that the rule exists within a device, via Panorama."""
     dialog_list = [
         {
@@ -129,7 +190,7 @@ def validate_rule_exists(
         },
         {
             "type": "text",
-            "label": "Destination dst_port",
+            "label": "Destination Port",
             "default": "443",
         },
     ]
@@ -143,6 +204,22 @@ def validate_rule_exists(
     pano = connect_panorama()
     if not device:
         return prompt_for_device(dispatcher, "panorama validate-rule-exists", pano)
+
+    dev_obj = get_object(pano, device)
+
+    if not dev_obj:
+        dispatcher.send_warning(f"Unable to find {device}.")
+        return CommandStatusChoices.STATUS_FAILED
+
+    if isinstance(dev_obj, DeviceGroup):
+        for child in dev_obj.children:
+            if isinstance(child, Firewall):
+                try:
+                    child.refresh()
+                    dev_obj = child
+                    break
+                except PanDeviceXapiError as err:
+                    dispatcher.send_warning(f"Unable to connect to {child}. {err}")
 
     if not all([src_ip, dst_ip, protocol, dst_port]):
         dispatcher.multi_input_dialog(
@@ -168,17 +245,13 @@ def validate_rule_exists(
         )
         return CommandStatusChoices.STATUS_ERRORED
 
-    serial = get_devices(connection=pano).get(device, {}).get("serial")
-    if not serial:
-        return dispatcher.send_warning(f"The device {device} was not found.")
-
     data = {
         "src_ip": src_ip,
         "dst_ip": dst_ip,
         "protocol": PROTO_NAME_TO_NUM.get(protocol.upper()),
         "dst_port": dst_port,
     }
-    matching_rules = get_rule_match(five_tuple=data, serial=serial)
+    matching_rules = get_rule_match(pano=pano, five_tuple=data, device=dev_obj)
 
     if matching_rules:
         all_rules = []
@@ -287,15 +360,29 @@ def upload_software(dispatcher, device, version, **kwargs):
             dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
         )
 
-    devs = get_devices(connection=pano)
     dispatcher.send_markdown(
         f"Hey {dispatcher.user_mention()}, you've requested to upload {version} to {device}.", ephemeral=True
     )
-    _firewall = Firewall(serial=devs[device]["serial"])
+    _firewall = get_object(pano=pano, object_name=device)
+
+    is_devicegroup = False
+    if isinstance(_firewall, DeviceGroup):
+        is_devicegroup = True
+        for child in _firewall.children:
+            try:
+                child.refresh()
+                _firewall = child
+                break
+            except PanDeviceXapiError as err:
+                dispatcher.send_warning(f"There was an issue connecting to {child}. {err}")
+
     pano.add(_firewall)
     dispatcher.send_markdown("Starting download now...", ephemeral=True)
     try:
-        _firewall.software.download(version)
+        if is_devicegroup:
+            _firewall.software.download(version, sync_to_peer=True)
+        else:
+            _firewall.software.download(version)
     except PanDeviceError as err:
         blocks = [
             *dispatcher.command_response_header(
@@ -341,7 +428,7 @@ def install_software(dispatcher, device, version, **kwargs):
             dispatcher, f"panorama upload-software {device}", pano, prompt_offset=re.findall(r"\d+", version)[0]
         )
 
-    devs = get_devices(connection=pano)
+    devs = get_from_pano(connection=pano, devices=True)
     dispatcher.send_markdown(
         f"Hey {dispatcher.user_mention()}, you've requested to install {version} to {device}.", ephemeral=True
     )
@@ -590,8 +677,8 @@ def capture_traffic(
         )
 
     # Validate dport
+    dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
     try:
-        dport_error = f"Destination Port {dport} must be either the string `any` or an integer in the range 1-65535."
         if not 1 <= int(dport) <= 65535:
             raise TypeError
     except ValueError:
@@ -645,7 +732,7 @@ def capture_traffic(
     # ---------------------------------------------------
     # Start Packet Capture on Device
     # ---------------------------------------------------
-    devices = get_devices(connection=pano)
+    devices = get_from_pano(connection=pano, devices=True)
     try:
         # TODO: This gathers the internal IP address that Panorama sees. However if the firewall is accessible to Nautobot via a different IP address (e.g. external), this fails.
         #       Add support for multiple possible IP addresses here
